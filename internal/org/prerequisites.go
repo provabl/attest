@@ -52,12 +52,16 @@ type GroundMeta struct {
 // Category: edr, siem, cspm, cwpp, data-transfer, vuln-scanning, identity, research-platform
 // Features: fedramp-high, fedramp-moderate, baa, hipaa-compliant, high-assurance, soc2-type2
 type ExternalService struct {
-	Name     string   `json:"name"`
-	Vendor   string   `json:"vendor"`
-	Category string   `json:"category"`
-	Features []string `json:"features,omitempty"`
-	Scope    []string `json:"scope,omitempty"` // OU names; empty = org-wide
-	Notes    string   `json:"notes,omitempty"`
+	Name        string         `json:"name"`
+	Vendor      string         `json:"vendor"`
+	Category    string         `json:"category"`
+	Features    []string       `json:"features,omitempty"`
+	Scope       []string       `json:"scope,omitempty"` // OU names; empty = org-wide
+	Notes       string         `json:"notes,omitempty"`
+	// Probe and ProbeConfig mirror the ground.yaml fields so probe declarations
+	// survive round-trip through ground-meta.json without silent field loss.
+	Probe       string         `json:"probe,omitempty"`
+	ProbeConfig map[string]any `json:"probe_config,omitempty"`
 }
 
 // CheckPrerequisites validates that the AWS Organization meets attest's minimum
