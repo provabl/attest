@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-04-30
+
+### Added
+
+- **`pkg/schema/tags.go`**: versioned `attest:*` IAM tag key constants — single source of truth for all tag keys the principal resolver reads from qualify-written IAM tags. All 21 constants cover training completion, countries-of-concern, NIH DUA, and identity/lab tags. Schema version documented inline with cross-reference to qualify#32.
+- **`attest model-training-wrapper`**: generates a SageMaker training config JSON with automatic NIH derivative output tagging. Tags all output artifacts as `nih-derivative=true` at training time, satisfying NIH GDS model lifecycle control (nih-gds-2.3).
+- **`attest provision --provenance-aware`**: deploys S3 lifecycle rules and tag-enforcement SCP to AWS via CloudFormation, resolving the HIPAA retention vs. NIH DUA closeout conflict.
+
+### Changed
+
+- **`GroundMeta`** (`internal/org/prerequisites.go`): removed `guardduty_enabled` and `security_hub_enabled` fields — ground no longer deploys detection services. Added `ExternalServices []ExternalService` and `ProbeResults map[string]*ProbeResult` fields reflecting the new ground architecture. `CheckPrerequisitesFromMeta` updated accordingly.
+- **`internal/principal/resolver.go`**: all hardcoded `"attest:*"` tag strings replaced with `schema.Tag*` constants from `pkg/schema/tags.go`. Renames are now compile-time errors.
+- **`CheckPrerequisites` remediation messages**: GuardDuty and Security Hub failures now direct to `attest compile` + `attest apply` rather than `ground deploy`.
+
+### Security
+
+- **ExternalService terminal output sanitization**: `sanitizeTerminalString()` strips ANSI/VT100 escape sequences from operator-supplied service names before printing in `CheckPrerequisitesFromMeta`.
+
+### Fixed
+
+- **Control counts in quickstart docs**: CMMC Level 2 now correctly shows 110 controls.
+- **`cmmc-level-2` framework**: added `dependencies: [{id: nist-800-171-r2, required: true}]` so `attest compile` enforces prerequisite framework activation.
+
 ## [0.24.0] - 2026-04-30
 
 ### Added
