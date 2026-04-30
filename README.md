@@ -217,18 +217,21 @@ Framework contributions welcome — see [`frameworks/CONTRIBUTING.md`](framework
 
 ## Open core
 
-| Open source | Commercial (Playground Logic) |
-|-------------|-------------------------------|
-| Framework definitions and schema | Cedar PDP continuous enforcement |
-| SCP, Cedar, Config compilers | Compliance dashboard |
-| Crosswalk manifest generator | AI capabilities (Bedrock + Claude) |
+| Open source (always free) | Commercial (attest Cloud) |
+|---|---|
+| Framework definitions + schema | Cedar PDP continuous enforcement |
+| SCP / Cedar / Config compilers | Live compliance dashboard |
+| Crosswalk manifest generator | AI compliance navigator (Bedrock + Claude) |
 | CLI: init, scan, compile, generate | Multi-SRE management |
-| Policy unit testing | GRC integrations (OSCAL continuous) |
-| IaC output (Terraform, CDK) | Bouncing auth for dashboard |
-| Attestation and waiver management | Operational alerting |
+| Policy testing + simulation | GRC integrations (OSCAL continuous) |
+| IaC output (Terraform, CDK) | Operational monitoring + alerting |
+| Waiver + attestation management | Managed regulatory watch |
+| qualify tag schema contract | Framework customization service |
+
+See [COMMERCIAL.md](COMMERCIAL.md) for the complete boundary and rationale.
 
 ---
 
 ## License
 
-Apache 2.0. The compliance compiler, framework definitions, CLI, and governance tools are open source. The continuous enforcement dashboard and AI capabilities are commercial.
+Apache 2.0. Copyright 2026 Scott Friedman.
