@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-04-30
+
+### Fixed
+
+- **`ExternalService` struct** (`internal/org/prerequisites.go`): added `Probe string` and `ProbeConfig map[string]any` fields to match ground's `config.ExternalService`. Previously these fields were silently dropped during JSON unmarshal of `ground-meta.json`, breaking the end-to-end probe contract for any external service with a probe declaration configured.
+
 ## [0.25.0] - 2026-04-30
 
 ### Added
