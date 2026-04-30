@@ -287,13 +287,6 @@ func metaCheck(name string, ok bool, detail, remediation string) PrereqResult {
 	return PrereqResult{Name: name, Severity: "error", Status: false, Detail: "not enabled", Remediation: remediation}
 }
 
-func metaCheckWarn(name string, ok bool, detail, remediation string) PrereqResult {
-	if ok {
-		return PrereqResult{Name: name, Severity: "ok", Status: true, Detail: detail}
-	}
-	return PrereqResult{Name: name, Severity: "warning", Status: false, Detail: "not enabled", Remediation: remediation}
-}
-
 // sanitizeTerminalString strips ANSI/VT100 escape sequences from operator-supplied
 // strings before printing to a terminal. Prevents injection via ground-meta.json.
 func sanitizeTerminalString(s string) string {
