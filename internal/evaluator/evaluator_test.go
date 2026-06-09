@@ -226,6 +226,56 @@ func TestEvaluateWithPolicies_WorkloadContext(t *testing.T) {
 	}
 }
 
+// TestEvaluateWithPolicies_PlatformContext proves the Cedar Context entity is
+// populated from context.platform.* attributes (nitro's attestation.json, lowered
+// by the CLI), so policies can gate on runtime/enclave attestation. End-to-end
+// proof of #104. No evaluator change was needed: buildContext groups
+// context.<group>.* generically, so context.platform.* works like context.workload.*.
+func TestEvaluateWithPolicies_PlatformContext(t *testing.T) {
+	ev := NewEvaluator(nil)
+
+	attestedPolicy, err := cedar.NewPolicySetFromBytes("attested.cedar",
+		[]byte(`permit(principal, action, resource) when { context.platform.nitro_attested == true };`))
+	if err != nil {
+		t.Fatalf("parse attested policy: %v", err)
+	}
+	pcrPolicy, err := cedar.NewPolicySetFromBytes("pcr.cedar",
+		[]byte(`permit(principal, action, resource) when { context.platform.pcr0 == "expected-image" };`))
+	if err != nil {
+		t.Fatalf("parse pcr policy: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		ps         *cedar.PolicySet
+		attrs      map[string]any
+		wantEffect string
+	}{
+		{"attested true", attestedPolicy, map[string]any{"context.platform.nitro_attested": true}, "ALLOW"},
+		{"attested false", attestedPolicy, map[string]any{"context.platform.nitro_attested": false}, "DENY"},
+		{"attested absent", attestedPolicy, map[string]any{}, "DENY"},
+		{"pcr0 matches", pcrPolicy, map[string]any{"context.platform.pcr0": "expected-image"}, "ALLOW"},
+		{"pcr0 differs", pcrPolicy, map[string]any{"context.platform.pcr0": "rogue-image"}, "DENY"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := &AuthzRequest{
+				PrincipalARN: "arn:aws:iam::123456789012:role/Workload",
+				Action:       "s3:GetObject",
+				ResourceARN:  "arn:aws:s3:::cui-data/obj",
+				Attributes:   tc.attrs,
+			}
+			d, err := ev.EvaluateWithPolicies(context.Background(), tc.ps, req)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if d.Effect != tc.wantEffect {
+				t.Errorf("attrs %v: expected %s, got %s", tc.attrs, tc.wantEffect, d.Effect)
+			}
+		})
+	}
+}
+
 // TestBuildContext_Nesting verifies context.<group>.<attr> keys produce a nested
 // record-of-records (the shape policies read as context.workload.slsa_level).
 func TestBuildContext_Nesting(t *testing.T) {

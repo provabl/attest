@@ -466,6 +466,29 @@ type WorkloadAttributes struct {
 	ArtifactHash string `json:"artifact_hash"` // Cedar: context.workload.artifact_hash
 }
 
+// --- Platform Attributes ---
+
+// PlatformAttributes are the runtime/enclave attestation attributes Cedar
+// policies evaluate as context.platform.* (e.g. context.platform.nitro_attested
+// == true).
+//
+// They are produced by the evidence kernel's nitro provider (AWS Nitro enclave
+// attestation: native nonce binding, PCR policy, signature verification). A nitro
+// tool / enclave runtime writes .nitro/attestation.json with the lowered result;
+// attest reads that JSON artifact (see internal/platform) — it does not run the
+// evidence kernel. Appraisal happens at the source; attest is the PDP that
+// consumes the lowered result. See docs/integrations/nitro.md for the contract.
+type PlatformAttributes struct {
+	NitroAttested  bool   `json:"nitro_attested"`  // Cedar: context.platform.nitro_attested (overall verdict)
+	ModuleID       string `json:"module_id"`       // Cedar: context.platform.module_id
+	NonceVerified  bool   `json:"nonce_verified"`  // Cedar: context.platform.nonce_verified
+	SignatureValid bool   `json:"signature_valid"` // Cedar: context.platform.signature_valid
+	PCR0           string `json:"pcr0"`            // Cedar: context.platform.pcr0 (enclave image)
+	PCR1           string `json:"pcr1"`            // Cedar: context.platform.pcr1 (kernel/bootstrap)
+	PCR2           string `json:"pcr2"`            // Cedar: context.platform.pcr2 (application)
+	PCR8           string `json:"pcr8"`            // Cedar: context.platform.pcr8 (signing certificate)
+}
+
 // --- Cedar Evaluation ---
 
 // CedarDecision records a single Cedar PDP authorization decision.
