@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/provabl/attest/pkg/schema"
 )
@@ -38,9 +39,24 @@ func Load(dir string) (*schema.WorkloadAttributes, error) {
 	if dir == "" {
 		dir = DefaultVetDir
 	}
-	path := filepath.Join(dir, gateResultFile)
 
-	data, err := os.ReadFile(path) // #nosec G304 — operator-controlled path
+	// Confine the read to dir: the filename is a fixed constant, so the joined
+	// path must resolve to a direct child of dir. This rejects a dir like
+	// "../../etc" escaping anywhere unexpected before we touch the filesystem.
+	base, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, fmt.Errorf("resolving workload dir %q: %w", dir, err)
+	}
+	path := filepath.Join(base, gateResultFile)
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolving workload path: %w", err)
+	}
+	if !strings.HasPrefix(abs+string(filepath.Separator), base+string(filepath.Separator)) {
+		return nil, fmt.Errorf("workload path %q escapes %q", abs, base)
+	}
+
+	data, err := os.ReadFile(abs) // #nosec G304 — confined to base above
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
