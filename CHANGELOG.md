@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Cedar `context` entity** (`internal/evaluator`): the evaluator now builds and passes a Cedar
+  request `Context` (it previously only set principal/resource), so policies can gate on
+  `context.*`. `buildContext` groups `context.<group>.<attr>` keys into a nested record-of-records
+  generically. (#103)
+- **`context.workload.*` from vet** (#103): new `internal/workload` reader loads vet's
+  `.vet/gate-result.json` into `schema.WorkloadAttributes`; `attest evaluate --workload-dir` injects
+  `context.workload.{slsa_level,sbom_present,cve_critical,cve_high,signed,artifact_hash}`. See
+  `docs/integrations/vet.md`.
+- **`context.platform.*` from nitro** (#104): new `internal/platform` reader loads a nitro
+  attestation result (`.nitro/attestation.json`) into `schema.PlatformAttributes`; `attest evaluate
+  --platform-dir` injects `context.platform.{nitro_attested,module_id,nonce_verified,signature_valid,pcr0..8}`.
+  No evaluator change needed (the `context.<group>.*` machinery is generic). See
+  `docs/integrations/nitro.md`.
+
+### Changed
+
+- **Go 1.26.4**: bumped the `go` directive to clear the GO-2026-* standard-library advisories the
+  weekly Security Scan flagged. (#101)
+- Copyright holder normalized to Playground Logic LLC.
+
+### Notes
+
+- #102 (resolver reads "appraised" attributes) resolved as satisfied-by-design: producing tools
+  appraise in-process with ephemeral keys and persist only lowered attributes, so attest consumes
+  those lowered attributes (IAM tags / JSON artifacts) rather than re-appraising. See ADR 0001.
+
 ## [0.25.1] - 2026-04-30
 
 ### Fixed
