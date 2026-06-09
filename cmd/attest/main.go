@@ -41,6 +41,7 @@ import (
 	"github.com/provabl/attest/internal/integrations/grc"
 	"github.com/provabl/attest/internal/multisre"
 	"github.com/provabl/attest/internal/principal"
+	"github.com/provabl/attest/internal/workload"
 	"github.com/provabl/attest/internal/provision"
 	"github.com/provabl/attest/internal/artifact"
 	"github.com/provabl/attest/internal/attestation"
@@ -1499,6 +1500,21 @@ Provide principal, action, resource ARNs and entity attributes as --attr flags.`
 				}
 			}
 
+			// Workload attributes from vet (context.workload.*), read from
+			// vet's gate-result.json if present. Absent → no context keys, and
+			// policies requiring context.workload.* default to deny.
+			workloadDir, _ := cmd.Flags().GetString("workload-dir")
+			if wl, err := workload.Load(workloadDir); err != nil {
+				return fmt.Errorf("loading workload attributes: %w", err)
+			} else if wl != nil {
+				attributes["context.workload.slsa_level"] = int64(wl.SLSALevel)
+				attributes["context.workload.sbom_present"] = wl.SBOMPresent
+				attributes["context.workload.cve_critical"] = wl.CVECritical
+				attributes["context.workload.cve_high"] = wl.CVEHigh
+				attributes["context.workload.signed"] = wl.Signed
+				attributes["context.workload.artifact_hash"] = wl.ArtifactHash
+			}
+
 			// Build Cedar request.
 			req := evaluator.AuthzRequest{
 				PrincipalARN: principalARN,
@@ -1550,6 +1566,7 @@ Provide principal, action, resource ARNs and entity attributes as --attr flags.`
 	cmd.Flags().String("ldap-url", "", "LDAP server URL for principal attribute resolution (optional)")
 	cmd.Flags().String("ldap-base-dn", "", "LDAP base DN (required with --ldap-url)")
 	cmd.Flags().String("region", "us-east-1", "AWS region for SAML/IAM attribute resolution")
+	cmd.Flags().String("workload-dir", ".vet", "directory containing vet's gate-result.json for context.workload.* attributes")
 	_ = cmd.MarkFlagRequired("principal")
 	_ = cmd.MarkFlagRequired("action")
 	_ = cmd.MarkFlagRequired("resource")

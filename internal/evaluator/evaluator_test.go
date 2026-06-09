@@ -9,6 +9,7 @@ import (
 	"time"
 
 	cedar "github.com/cedar-policy/cedar-go"
+	"github.com/cedar-policy/cedar-go/types"
 )
 
 func newPermitAllPolicySet(t *testing.T) *cedar.PolicySet {
@@ -174,5 +175,77 @@ func TestEvaluateWithPolicies_WithAttributes(t *testing.T) {
 				t.Errorf("attrs %v: expected %s, got %s", tc.attrs, tc.wantEffect, d.Effect)
 			}
 		})
+	}
+}
+
+// TestEvaluateWithPolicies_WorkloadContext proves the Cedar Context entity is
+// populated from context.workload.* attributes (vet's gate-result.json, lowered
+// by the CLI), so policies can gate on supply-chain posture. End-to-end proof of #103.
+func TestEvaluateWithPolicies_WorkloadContext(t *testing.T) {
+	ev := NewEvaluator(nil)
+
+	slsaPolicy, err := cedar.NewPolicySetFromBytes("slsa.cedar",
+		[]byte(`permit(principal, action, resource) when { context.workload.slsa_level >= 2 };`))
+	if err != nil {
+		t.Fatalf("parse slsa policy: %v", err)
+	}
+	signedPolicy, err := cedar.NewPolicySetFromBytes("signed.cedar",
+		[]byte(`permit(principal, action, resource) when { context.workload.signed == true };`))
+	if err != nil {
+		t.Fatalf("parse signed policy: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		ps         *cedar.PolicySet
+		attrs      map[string]any
+		wantEffect string
+	}{
+		{"slsa 2 meets >=2", slsaPolicy, map[string]any{"context.workload.slsa_level": int64(2)}, "ALLOW"},
+		{"slsa 1 below >=2", slsaPolicy, map[string]any{"context.workload.slsa_level": int64(1)}, "DENY"},
+		{"slsa absent context", slsaPolicy, map[string]any{}, "DENY"},
+		{"signed true", signedPolicy, map[string]any{"context.workload.signed": true}, "ALLOW"},
+		{"signed absent", signedPolicy, map[string]any{}, "DENY"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := &AuthzRequest{
+				PrincipalARN: "arn:aws:iam::123456789012:role/Workload",
+				Action:       "s3:GetObject",
+				ResourceARN:  "arn:aws:s3:::cui-data/obj",
+				Attributes:   tc.attrs,
+			}
+			d, err := ev.EvaluateWithPolicies(context.Background(), tc.ps, req)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if d.Effect != tc.wantEffect {
+				t.Errorf("attrs %v: expected %s, got %s", tc.attrs, tc.wantEffect, d.Effect)
+			}
+		})
+	}
+}
+
+// TestBuildContext_Nesting verifies context.<group>.<attr> keys produce a nested
+// record-of-records (the shape policies read as context.workload.slsa_level).
+func TestBuildContext_Nesting(t *testing.T) {
+	ctx := buildContext(map[string]any{
+		"context.workload.slsa_level": int64(2),
+		"context.workload.signed":     true,
+		"principal.ignored":           "x", // non-context keys are skipped
+	})
+	wl, ok := ctx.Get(types.String("workload"))
+	if !ok {
+		t.Fatal("expected nested 'workload' record in context")
+	}
+	wlRec, ok := wl.(types.Record)
+	if !ok {
+		t.Fatalf("workload is %T, want types.Record", wl)
+	}
+	if v, _ := wlRec.Get(types.String("slsa_level")); v != types.Long(2) {
+		t.Errorf("workload.slsa_level = %v, want 2", v)
+	}
+	if v, _ := wlRec.Get(types.String("signed")); v != types.Boolean(true) {
+		t.Errorf("workload.signed = %v, want true", v)
 	}
 }

@@ -445,6 +445,27 @@ type PrincipalAttributes struct {
 	Attributes        map[string]string `json:"attributes,omitempty"`          // extensible attributes
 }
 
+// --- Workload Attributes ---
+
+// WorkloadAttributes are the software supply-chain attributes Cedar policies
+// evaluate as context.workload.* (e.g. context.workload.slsa_level >= 2).
+//
+// They are produced by vet (github.com/provabl/vet), which writes
+// .vet/gate-result.json after a `vet gate`. attest reads that JSON artifact (see
+// internal/workload) — it does not run vet's evidence kernel. Appraisal happens
+// in vet at the source; attest is the PDP that consumes the lowered result.
+// Only the six attributes the integration contract names are surfaced here; the
+// artifact, policy_met, and evaluated_at fields of gate-result.json are ignored.
+// See docs/integrations/vet.md for the contract.
+type WorkloadAttributes struct {
+	SLSALevel    int    `json:"slsa_level"`    // Cedar: context.workload.slsa_level (0 = not verified)
+	SBOMPresent  bool   `json:"sbom_present"`  // Cedar: context.workload.sbom_present
+	CVECritical  bool   `json:"cve_critical"`  // Cedar: context.workload.cve_critical
+	CVEHigh      bool   `json:"cve_high"`      // Cedar: context.workload.cve_high
+	Signed       bool   `json:"signed"`        // Cedar: context.workload.signed
+	ArtifactHash string `json:"artifact_hash"` // Cedar: context.workload.artifact_hash
+}
+
 // --- Cedar Evaluation ---
 
 // CedarDecision records a single Cedar PDP authorization decision.
