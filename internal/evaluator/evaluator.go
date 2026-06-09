@@ -102,6 +102,7 @@ func (e *Evaluator) EvaluateWithPolicies(ctx context.Context, ps *cedar.PolicySe
 		Principal: principalUID,
 		Action:    actionUID,
 		Resource:  resourceUID,
+		Context:   buildContext(req.Attributes),
 	}
 
 	decision, diag := cedar.Authorize(ps, entities, cedarReq)
@@ -292,6 +293,38 @@ func buildAttributes(attrs map[string]any, prefix string) types.Record {
 		}
 		attrName := parts[1]
 		rm[types.String(attrName)] = toValue(v)
+	}
+	return types.NewRecord(rm)
+}
+
+// buildContext builds the Cedar request Context from the flat attribute map.
+// Unlike buildAttributes (which produces a FLAT record for principal/resource),
+// the Cedar Context is a record of records: a key like "context.workload.slsa_level"
+// becomes Context = {workload: {slsa_level: ...}}, so policies read
+// context.workload.slsa_level. The grouping is generic over the middle segment,
+// so additional groups (e.g. context.platform.* from a future runtime-attestation
+// source) need no change here.
+//
+// Returns an empty (non-nil) record when there are no context.* attributes, which
+// is required: Cedar's Request.Context must always be a valid Record.
+func buildContext(attrs map[string]any) types.Record {
+	groups := map[string]types.RecordMap{}
+	for k, v := range attrs {
+		// Expect exactly context.<group>.<attr>.
+		parts := strings.SplitN(k, ".", 3)
+		if len(parts) != 3 || parts[0] != "context" {
+			continue
+		}
+		group, attrName := parts[1], parts[2]
+		if groups[group] == nil {
+			groups[group] = types.RecordMap{}
+		}
+		groups[group][types.String(attrName)] = toValue(v)
+	}
+
+	rm := types.RecordMap{}
+	for group, m := range groups {
+		rm[types.String(group)] = types.NewRecord(m)
 	}
 	return types.NewRecord(rm)
 }

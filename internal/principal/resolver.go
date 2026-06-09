@@ -16,6 +16,15 @@
 //
 // The plugin interface is open source. Connectors for specific institutional
 // systems are community-maintained.
+//
+// On consuming evidence (provabl/evidence, ADR 0001): attest is the policy
+// decision point. The attest:* IAM tags this resolver reads are the *lowered*
+// product of appraisal that already happened in qualify (and vet, for
+// context.workload.*, via gate-result.json — see docs/integrations/vet.md).
+// Because the producing tools appraise in-process with ephemeral keys and persist
+// only lowered attributes, there is no cross-process evidence bundle for attest to
+// re-verify. attest therefore consumes appraised attributes rather than re-running
+// the kernel — "appraisal produces the verdict; Cedar acts on it; they never merge."
 package principal
 
 import (
