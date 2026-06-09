@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Scott Friedman
+// SPDX-FileCopyrightText: 2026 Playground Logic LLC
 // SPDX-License-Identifier: Apache-2.0
 
 // Package assessment generates CMMC 2.0 Level 2 self-assessment scores
