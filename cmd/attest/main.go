@@ -41,6 +41,7 @@ import (
 	"github.com/provabl/attest/internal/integrations/grc"
 	"github.com/provabl/attest/internal/multisre"
 	"github.com/provabl/attest/internal/principal"
+	"github.com/provabl/attest/internal/platform"
 	"github.com/provabl/attest/internal/workload"
 	"github.com/provabl/attest/internal/provision"
 	"github.com/provabl/attest/internal/artifact"
@@ -1515,6 +1516,23 @@ Provide principal, action, resource ARNs and entity attributes as --attr flags.`
 				attributes["context.workload.artifact_hash"] = wl.ArtifactHash
 			}
 
+			// Platform attributes from the nitro provider (context.platform.*),
+			// read from .nitro/attestation.json if present. Absent → no context
+			// keys, and policies requiring context.platform.* default to deny.
+			platformDir, _ := cmd.Flags().GetString("platform-dir")
+			if pl, err := platform.Load(platformDir); err != nil {
+				return fmt.Errorf("loading platform attributes: %w", err)
+			} else if pl != nil {
+				attributes["context.platform.nitro_attested"] = pl.NitroAttested
+				attributes["context.platform.module_id"] = pl.ModuleID
+				attributes["context.platform.nonce_verified"] = pl.NonceVerified
+				attributes["context.platform.signature_valid"] = pl.SignatureValid
+				attributes["context.platform.pcr0"] = pl.PCR0
+				attributes["context.platform.pcr1"] = pl.PCR1
+				attributes["context.platform.pcr2"] = pl.PCR2
+				attributes["context.platform.pcr8"] = pl.PCR8
+			}
+
 			// Build Cedar request.
 			req := evaluator.AuthzRequest{
 				PrincipalARN: principalARN,
@@ -1567,6 +1585,7 @@ Provide principal, action, resource ARNs and entity attributes as --attr flags.`
 	cmd.Flags().String("ldap-base-dn", "", "LDAP base DN (required with --ldap-url)")
 	cmd.Flags().String("region", "us-east-1", "AWS region for SAML/IAM attribute resolution")
 	cmd.Flags().String("workload-dir", ".vet", "directory containing vet's gate-result.json for context.workload.* attributes")
+	cmd.Flags().String("platform-dir", ".nitro", "directory containing nitro's attestation.json for context.platform.* attributes")
 	_ = cmd.MarkFlagRequired("principal")
 	_ = cmd.MarkFlagRequired("action")
 	_ = cmd.MarkFlagRequired("resource")
