@@ -10,6 +10,38 @@ to it. Changes to the tag schema require coordination and a version bump.
 
 ---
 
+## Schema versioning (the drift guard)
+
+The tag keys below are the contract. Historically each side declared them
+independently (qualify `internal/training/tags.go`, attest `pkg/schema/tags.go`), so a
+rename on one side would silently break the other — qualify writes the new key, attest
+reads the old one, and Cedar evaluates the attribute as missing rather than erroring
+(qualify#32).
+
+That gap is now closed without coupling the two products at build time (attest imports
+no `provabl/*` module; neither product requires the other):
+
+- A **canonical, machine-readable schema** — `attest-tags-schema.json` — is the single
+  source of truth. It is **byte-identical** in both repos (attest
+  `pkg/schema/attest-tags-schema.json`, qualify `internal/training/attest-tags-schema.json`;
+  verify with `shasum`). attest owns the `attest:` namespace.
+- Each repo **embeds** that JSON and a **conformance test** locks its Go constants to it:
+  attest asserts its declared constants == the schema keys; qualify asserts its constants
+  == the `writer: "qualify"` keys, and that `moduleTagMap` / `ModuleExpiryTag` match the
+  schema's `module` / `expiry` metadata. A drift fails CI with an actionable message.
+- A `SchemaVersion` **constant** in each repo must equal the schema's `version` field.
+
+**To change the schema** (add / remove / rename a key): edit `attest-tags-schema.json` in
+**both** repos (keep them byte-identical), update the Go constants, bump `SchemaVersion`
+in both, and release together. The conformance tests make skipping any of these a CI
+failure rather than a silent production break.
+
+Each schema entry records `writer` (`qualify` | `attest` | `legacy`), `type`
+(`bool` | `timestamp` | `string`), and — for the qualify training tags — the source
+`module` and paired `expiry` key.
+
+---
+
 ## The Interface: IAM Role Tags
 
 qualify writes tags. attest reads them. The interface is the AWS IAM tag API — neither

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Versioned `attest:*` tag schema contract** (qualify#32): the `attest:*` IAM tag namespace
+  shared with qualify is now anchored by a canonical, machine-readable `pkg/schema/attest-tags-schema.json`
+  (byte-identical with qualify's copy) plus a `SchemaVersion` constant. A conformance test
+  (`pkg/schema/tags_schema_test.go`) locks attest's tag-key constants to the schema, so a rename
+  or addition on either side fails CI instead of silently breaking Cedar evaluation. No new module
+  dependency — attest still imports no `provabl/*` package. See `docs/integrations/qualify.md`.
 - **Cedar `context` entity** (`internal/evaluator`): the evaluator now builds and passes a Cedar
   request `Context` (it previously only set principal/resource), so policies can gate on
   `context.*`. `buildContext` groups `context.<group>.<attr>` keys into a nested record-of-records
