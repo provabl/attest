@@ -1,0 +1,30 @@
+{
+  "$comment": "Canonical schema for the attest:* IAM role tag namespace shared between qualify (writer) and attest (reader). This file is byte-identical in both repos: provabl/attest pkg/schema/attest-tags-schema.json and provabl/qualify internal/training/attest-tags-schema.json. attest owns the namespace. Each repo embeds this file and a conformance test locks its Go constants to it, so any key change fails CI until BOTH the schema and the version are updated. See https://github.com/provabl/qualify/issues/32.",
+  "version": 1,
+  "namespace": "attest:",
+  "tags": [
+    { "key": "attest:cui-training",                      "writer": "qualify", "type": "bool",      "module": "cui-fundamentals",               "expiry": "attest:cui-training-expiry" },
+    { "key": "attest:cui-training-expiry",               "writer": "qualify", "type": "timestamp" },
+    { "key": "attest:hipaa-training",                    "writer": "qualify", "type": "bool",      "module": "hipaa-privacy-security",         "expiry": "attest:hipaa-training-expiry" },
+    { "key": "attest:hipaa-training-expiry",             "writer": "qualify", "type": "timestamp" },
+    { "key": "attest:awareness-training",                "writer": "qualify", "type": "bool",      "module": "security-awareness",            "expiry": "attest:awareness-training-expiry" },
+    { "key": "attest:awareness-training-expiry",         "writer": "qualify", "type": "timestamp" },
+    { "key": "attest:ferpa-training",                    "writer": "qualify", "type": "bool",      "module": "ferpa-basics",                  "expiry": "attest:ferpa-training-expiry" },
+    { "key": "attest:ferpa-training-expiry",             "writer": "qualify", "type": "timestamp" },
+    { "key": "attest:itar-training",                     "writer": "qualify", "type": "bool",      "module": "itar-export-control",           "expiry": "attest:itar-training-expiry" },
+    { "key": "attest:itar-training-expiry",              "writer": "qualify", "type": "timestamp" },
+    { "key": "attest:data-class-training",               "writer": "qualify", "type": "bool",      "module": "data-classification",           "expiry": "attest:data-class-training-expiry" },
+    { "key": "attest:data-class-training-expiry",        "writer": "qualify", "type": "timestamp" },
+    { "key": "attest:research-security-training",        "writer": "qualify", "type": "bool",      "module": "nih-research-security",         "expiry": "attest:research-security-training-expiry" },
+    { "key": "attest:research-security-training-expiry", "writer": "qualify", "type": "timestamp" },
+    { "key": "attest:coc-check-current",                 "writer": "qualify", "type": "bool",      "module": "countries-of-concern-awareness", "expiry": "attest:coc-check-expiry" },
+    { "key": "attest:coc-check-expiry",                  "writer": "qualify", "type": "timestamp" },
+    { "key": "attest:country",                           "writer": "qualify", "type": "string" },
+    { "key": "attest:lab-id",                            "writer": "qualify", "type": "string" },
+    { "key": "attest:admin-level",                       "writer": "qualify", "type": "string" },
+    { "key": "attest:nih-approval",                      "writer": "attest",  "type": "bool",      "expiry": "attest:nih-approval-expiry" },
+    { "key": "attest:nih-approval-expiry",               "writer": "attest",  "type": "timestamp" },
+    { "key": "attest:nih-dua-id",                        "writer": "attest",  "type": "string" },
+    { "key": "attest:cui-expiry",                        "writer": "legacy",  "type": "timestamp" }
+  ]
+}

@@ -226,7 +226,7 @@ Framework contributions welcome — see [`frameworks/CONTRIBUTING.md`](framework
 | Policy testing + simulation | GRC integrations (OSCAL continuous) |
 | IaC output (Terraform, CDK) | Operational monitoring + alerting |
 | Waiver + attestation management | Managed regulatory watch |
-| qualify tag schema contract | Framework customization service |
+| [qualify tag schema contract](docs/integrations/qualify.md) (versioned) | Framework customization service |
 
 See [COMMERCIAL.md](COMMERCIAL.md) for the complete boundary and rationale.
 
