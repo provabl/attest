@@ -113,12 +113,12 @@ func (e *Evaluator) EvaluateWithPolicies(ctx context.Context, ps *cedar.PolicySe
 	}
 
 	d := &schema.CedarDecision{
-		Timestamp:   now,
-		Action:      req.Action,
-		Principal:   req.PrincipalARN,
-		Resource:    req.ResourceARN,
-		Effect:      effect,
-		AccountID:   req.AccountID,
+		Timestamp: now,
+		Action:    req.Action,
+		Principal: req.PrincipalARN,
+		Resource:  req.ResourceARN,
+		Effect:    effect,
+		AccountID: req.AccountID,
 	}
 
 	// Extract policy ID from diagnostics.
@@ -347,6 +347,14 @@ func toValue(v any) types.Value {
 		return types.Long(val)
 	case float64:
 		return types.Long(int64(val))
+	case []string:
+		// Set-typed attribute (e.g. principal.nih_approval_dua_ids) — needed for
+		// Cedar membership tests like principal.nih_approval_dua_ids.contains(...).
+		elems := make([]types.Value, 0, len(val))
+		for _, s := range val {
+			elems = append(elems, types.String(s))
+		}
+		return types.NewSet(elems...)
 	default:
 		return types.String(fmt.Sprintf("%v", v))
 	}

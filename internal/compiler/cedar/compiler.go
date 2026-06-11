@@ -95,7 +95,7 @@ func (c *Compiler) Compile(rcs *framework.ResolvedControlSet) ([]CompiledCedarPo
 func (c *Compiler) BuildSchema(rcs *framework.ResolvedControlSet) string {
 	// Collect all entity types and actions across all controls.
 	entityDefs := make(map[string]map[string]string) // entity name → attr → Cedar type
-	actionDefs := make(map[string][]string)           // action name → principal+resource types
+	actionDefs := make(map[string][]string)          // action name → principal+resource types
 
 	for _, controls := range rcs.Operational {
 		for _, rc := range controls {
@@ -294,8 +294,10 @@ func inferCedarType(attr string) string {
 		}
 	}
 
-	// Set indicators.
-	for _, keyword := range []string{"protocols", "membership", "classes", "groups", "tags"} {
+	// Set indicators. "ids" (plural) catches set-valued id attributes like
+	// nih_approval_dua_ids while leaving singular ids (dua_id, repository_id) as
+	// String below — the plural check runs first, so it wins.
+	for _, keyword := range []string{"protocols", "membership", "classes", "groups", "tags", "ids"} {
 		if strings.Contains(lower, keyword) {
 			return "Set<String>"
 		}
