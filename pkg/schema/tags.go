@@ -15,7 +15,11 @@ import (
 // qualify's internal/training/tags.go. Bump it (in both repos, same release)
 // whenever a tag key is added, removed, or renamed.
 // See: https://github.com/provabl/qualify/issues/32
-const SchemaVersion = 1
+//
+// v2 (2026-06): attest:nih-dua-id (string) → attest:nih-dua-ids (set). A
+// researcher holds DUAs for multiple studies, and compute-to-data binds each
+// dataset to a specific DUA. See docs/adr/0002-compute-to-data-access.md.
+const SchemaVersion = 2
 
 // canonicalTagsSchemaJSON is the byte-identical canonical schema, also present in
 // qualify at internal/training/attest-tags-schema.json. The conformance test in
@@ -30,10 +34,16 @@ var canonicalTagsSchemaJSON []byte
 type TagSchemaEntry struct {
 	Key    string `json:"key"`
 	Writer string `json:"writer"` // "qualify" | "attest" | "legacy"
-	Type   string `json:"type"`   // "bool" | "timestamp" | "string"
+	Type   string `json:"type"`   // "bool" | "timestamp" | "string" | "set"
 	Module string `json:"module,omitempty"`
 	Expiry string `json:"expiry,omitempty"`
 }
+
+// SetDelim joins members of a "set"-typed tag value into the single IAM tag
+// value string. A comma is not a valid IAM tag-value character; '+' is. DUA /
+// phs study ids contain '.' and '-' but never '+', so '+' is an unambiguous
+// separator. See docs/adr/0002-compute-to-data-access.md.
+const SetDelim = "+"
 
 // TagSchema is the parsed canonical schema.
 type TagSchema struct {
@@ -88,7 +98,10 @@ const (
 	// NIH DUA / Approved User tags — written by NIH DUA management workflow.
 	TagNIHApproval       = "attest:nih-approval"
 	TagNIHApprovalExpiry = "attest:nih-approval-expiry"
-	TagNIHDUAID          = "attest:nih-dua-id"
+	// TagNIHDUAIDs is a set (SetDelim-joined) of the DUA / study ids this
+	// principal is approved under — one per controlled-access dataset. The
+	// dataset-scoped Cedar policy checks membership against resource.dua_id.
+	TagNIHDUAIDs = "attest:nih-dua-ids"
 
 	// Identity and lab tags — written by qualify lab setup.
 	TagLabID      = "attest:lab-id"

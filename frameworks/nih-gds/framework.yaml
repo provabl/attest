@@ -79,7 +79,7 @@ controls:
           principal:
             - nih_approval_current
             - nih_approval_expiry
-            - nih_approval_dua_id
+            - nih_approval_dua_ids
           nih_resource:
             - nih_controlled_access
             - repository_id
@@ -277,7 +277,7 @@ controls:
         attributes:
           principal:
             - nih_approval_current
-            - nih_approval_dua_id
+            - nih_approval_dua_ids
           model_resource:
             - nih_derivative
             - source_dua_id
