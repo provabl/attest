@@ -28,10 +28,12 @@ import (
 	ebsvc "github.com/aws/aws-sdk-go-v2/service/eventbridge"
 	ebtypes "github.com/aws/aws-sdk-go-v2/service/eventbridge/types"
 	iamSvc "github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	sqssvc "github.com/aws/aws-sdk-go-v2/service/sqs"
 	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 
 	"github.com/provabl/attest/internal/ai"
+	"github.com/provabl/attest/internal/approval"
 	"github.com/provabl/attest/internal/artifact"
 	"github.com/provabl/attest/internal/attestation"
 	"github.com/provabl/attest/internal/auth"
@@ -99,6 +101,7 @@ within it are research environments that inherit the org-level posture.`,
 		waiverCmd(),
 		incidentCmd(),
 		attestCmd(),
+		approvalCmd(),
 		calendarCmd(),
 		reportCmd(),
 		aiCmd(),
@@ -3785,6 +3788,184 @@ PI personal attestation on Data Use Certifications.`,
 	_ = piSignCmd.MarkFlagRequired("expires")
 
 	cmd.AddCommand(createCmd, listCmd, expireCmd, piSignCmd)
+	return cmd
+}
+
+// roleNameFromARN extracts the role name from an IAM role ARN, or returns the
+// input unchanged if it is already a bare role name (no ":role/").
+func roleNameFromARN(arn string) string {
+	const sep = ":role/"
+	if i := strings.LastIndex(arn, sep); i != -1 {
+		name := arn[i+len(sep):]
+		// Strip any path prefix ("admin/Researcher" → "Researcher").
+		if j := strings.LastIndex(name, "/"); j != -1 {
+			name = name[j+1:]
+		}
+		return name
+	}
+	return arn
+}
+
+// iamRoleTagger adapts the AWS IAM client to approval.RoleTagger.
+type iamRoleTagger struct{ client *iamSvc.Client }
+
+func (t *iamRoleTagger) ListRoleTags(ctx context.Context, roleName string) (map[string]string, error) {
+	tags := map[string]string{}
+	var marker *string
+	for {
+		out, err := t.client.ListRoleTags(ctx, &iamSvc.ListRoleTagsInput{RoleName: aws.String(roleName), Marker: marker})
+		if err != nil {
+			return nil, err
+		}
+		for _, tg := range out.Tags {
+			tags[aws.ToString(tg.Key)] = aws.ToString(tg.Value)
+		}
+		if !out.IsTruncated {
+			return tags, nil
+		}
+		marker = out.Marker
+	}
+}
+
+func (t *iamRoleTagger) TagRole(ctx context.Context, roleName string, tags map[string]string) error {
+	in := &iamSvc.TagRoleInput{RoleName: aws.String(roleName)}
+	for k, v := range tags {
+		in.Tags = append(in.Tags, iamtypes.Tag{Key: aws.String(k), Value: aws.String(v)})
+	}
+	_, err := t.client.TagRole(ctx, in)
+	return err
+}
+
+func (t *iamRoleTagger) UntagRole(ctx context.Context, roleName string, keys []string) error {
+	_, err := t.client.UntagRole(ctx, &iamSvc.UntagRoleInput{RoleName: aws.String(roleName), TagKeys: keys})
+	return err
+}
+
+// approvalCmd records and activates NIH DUA approvals on a researcher's IAM role.
+// "Record" persists a human-affirmed schema.Attestation; "activate" writes the
+// attest:nih-* tags the principal resolver reads and cedar-nih-approved-user gates
+// on. The approved DUAs are a set (attest:nih-dua-ids), so grant MERGES and revoke
+// removes one — see internal/approval and provabl ADR 0002 (compute-to-data).
+func approvalCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "approval",
+		Short: "Record and activate NIH DUA approvals on a researcher's IAM role",
+		Long: `Grant or revoke an NIH Data Use Agreement (DUA) approval for a researcher.
+
+grant records a signed DUA as a human-affirmed attestation and activates it by
+writing the attest:nih-approval, attest:nih-approval-expiry, and attest:nih-dua-ids
+tags on the researcher's IAM role. A researcher holds DUAs for multiple studies, so
+grant MERGES the DUA into the existing attest:nih-dua-ids set (compute-to-data binds
+each dataset to a specific DUA). revoke removes one DUA, clearing the approval tags
+entirely when the last one is removed.
+
+Requires iam:ListRoleTags, iam:TagRole, and iam:UntagRole on the target role.`,
+	}
+
+	newTagger := func(ctx context.Context, region string) (*iamRoleTagger, error) {
+		cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
+		if err != nil {
+			return nil, fmt.Errorf("load AWS config: %w", err)
+		}
+		return &iamRoleTagger{client: iamSvc.NewFromConfig(cfg)}, nil
+	}
+
+	attDir := filepath.Join(".attest", "attestations")
+	mgr := attestation.NewManager(attDir)
+
+	grantCmd := &cobra.Command{
+		Use:   "grant",
+		Short: "Grant (or extend) an NIH DUA approval and activate it",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+			roleARN, _ := cmd.Flags().GetString("role")
+			dua, _ := cmd.Flags().GetString("dua")
+			affirmedBy, _ := cmd.Flags().GetString("affirmed-by")
+			expiresStr, _ := cmd.Flags().GetString("expires")
+			region, _ := cmd.Flags().GetString("region")
+			evidenceRef, _ := cmd.Flags().GetString("evidence")
+
+			expires, err := time.Parse("2006-01-02", expiresStr)
+			if err != nil {
+				return fmt.Errorf("invalid --expires date (use YYYY-MM-DD): %w", err)
+			}
+
+			// Record first: a durable, human-affirmed attestation of the DUA. If
+			// the record can't be written we do not touch IAM (no silent activation
+			// without a recorded basis).
+			att := &schema.Attestation{
+				ID:           fmt.Sprintf("DUA-%d-%s", time.Now().Year(), strings.ToUpper(strings.ReplaceAll(dua, ".", ""))),
+				ControlID:    "nih-gds-1.1",
+				Title:        fmt.Sprintf("NIH DUA approval: %s", dua),
+				AffirmedBy:   affirmedBy,
+				ExpiresAt:    expires,
+				EvidenceRef:  evidenceRef,
+				EvidenceType: "manual",
+				Notes:        fmt.Sprintf("DUA %s; role %s", dua, roleARN),
+			}
+			if err := mgr.Create(ctx, att); err != nil {
+				return fmt.Errorf("recording approval attestation: %w", err)
+			}
+
+			// Activate: merge the DUA into the role's attest:nih-dua-ids set.
+			tagger, err := newTagger(ctx, region)
+			if err != nil {
+				return err
+			}
+			set, err := approval.Grant(ctx, tagger, roleNameFromARN(roleARN), dua, expires)
+			if err != nil {
+				return err
+			}
+			output.Printf("✓ Recorded attestation %s and activated DUA %s\n", att.ID, dua)
+			output.Printf("  Role %s now approved for: %s (expires %s)\n",
+				roleNameFromARN(roleARN), strings.Join(set, ", "), expires.Format("2006-01-02"))
+			return nil
+		},
+	}
+	grantCmd.Flags().String("role", "", "Researcher IAM role ARN or name (required)")
+	grantCmd.Flags().String("dua", "", "DUA / dbGaP study id, e.g. phs000178 (required)")
+	grantCmd.Flags().String("affirmed-by", "", "Who affirmed the signed DUA (required)")
+	grantCmd.Flags().String("expires", "", "DUA term end YYYY-MM-DD (required)")
+	grantCmd.Flags().String("evidence", "", "Reference to the signed DUA (path/URL)")
+	grantCmd.Flags().String("region", "us-east-1", "AWS region for IAM tagging")
+	_ = grantCmd.MarkFlagRequired("role")
+	_ = grantCmd.MarkFlagRequired("dua")
+	_ = grantCmd.MarkFlagRequired("affirmed-by")
+	_ = grantCmd.MarkFlagRequired("expires")
+
+	revokeCmd := &cobra.Command{
+		Use:   "revoke",
+		Short: "Revoke one NIH DUA approval (clears all approval tags when the last is removed)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+			roleARN, _ := cmd.Flags().GetString("role")
+			dua, _ := cmd.Flags().GetString("dua")
+			region, _ := cmd.Flags().GetString("region")
+
+			tagger, err := newTagger(ctx, region)
+			if err != nil {
+				return err
+			}
+			set, err := approval.Revoke(ctx, tagger, roleNameFromARN(roleARN), dua)
+			if err != nil {
+				return err
+			}
+			if len(set) == 0 {
+				output.Printf("✓ Revoked DUA %s; %s is no longer an NIH approved user (approval tags cleared)\n",
+					dua, roleNameFromARN(roleARN))
+			} else {
+				output.Printf("✓ Revoked DUA %s; role still approved for: %s\n", dua, strings.Join(set, ", "))
+			}
+			return nil
+		},
+	}
+	revokeCmd.Flags().String("role", "", "Researcher IAM role ARN or name (required)")
+	revokeCmd.Flags().String("dua", "", "DUA / dbGaP study id to revoke (required)")
+	revokeCmd.Flags().String("region", "us-east-1", "AWS region for IAM tagging")
+	_ = revokeCmd.MarkFlagRequired("role")
+	_ = revokeCmd.MarkFlagRequired("dua")
+
+	cmd.AddCommand(grantCmd, revokeCmd)
 	return cmd
 }
 
