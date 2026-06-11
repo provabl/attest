@@ -162,6 +162,17 @@ func (s *SAMLSource) Resolve(ctx context.Context, principalARN string, attrs *sc
 		}
 		return time.Time{}
 	}
+	// parseSet splits a SetDelim-joined tag value into its members, dropping
+	// empty members (so a trailing/duplicate delimiter is harmless).
+	parseSet := func(v string) []string {
+		var out []string
+		for _, m := range strings.Split(v, schema.SetDelim) {
+			if m = strings.TrimSpace(m); m != "" {
+				out = append(out, m)
+			}
+		}
+		return out
+	}
 
 	// CUI handling training
 	if v, ok := tags[schema.TagCUITraining]; ok {
@@ -222,8 +233,8 @@ func (s *SAMLSource) Resolve(ctx context.Context, principalARN string, attrs *sc
 	if v, ok := tags[schema.TagNIHApprovalExpiry]; ok {
 		attrs.NIHApprovalExpiry = parseExpiry(v)
 	}
-	if v, ok := tags[schema.TagNIHDUAID]; ok && v != "" {
-		attrs.NIHApprovalDUAID = v
+	if v, ok := tags[schema.TagNIHDUAIDs]; ok && v != "" {
+		attrs.NIHApprovalDUAIDs = parseSet(v)
 	}
 
 	// Institutional affiliation country (countries-of-concern, NOT-OD-25-083)
@@ -327,8 +338,8 @@ func (l *LDAPSource) Resolve(ctx context.Context, principalARN string, attrs *sc
 		l.BaseDN,
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases,
-		100,  // size limit
-		10,   // time limit seconds
+		100, // size limit
+		10,  // time limit seconds
 		false,
 		fmt.Sprintf("(&(objectClass=person)(cn=%s))", ldap.EscapeFilter(roleName)),
 		[]string{"memberOf", "cn", "mail"},

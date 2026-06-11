@@ -33,7 +33,7 @@ var declaredTagConstants = []string{
 	TagCountry,
 	TagNIHApproval,
 	TagNIHApprovalExpiry,
-	TagNIHDUAID,
+	TagNIHDUAIDs,
 	TagLabID,
 	TagAdminLevel,
 	TagCUIExpiryLegacy,
@@ -107,7 +107,7 @@ func TestSchemaEntriesWellFormed(t *testing.T) {
 		keys[e.Key] = true
 	}
 	writers := map[string]bool{"qualify": true, "attest": true, "legacy": true}
-	types := map[string]bool{"bool": true, "timestamp": true, "string": true}
+	types := map[string]bool{"bool": true, "timestamp": true, "string": true, "set": true}
 	for _, e := range s.Tags {
 		if !writers[e.Writer] {
 			t.Errorf("%s: unknown writer %q", e.Key, e.Writer)

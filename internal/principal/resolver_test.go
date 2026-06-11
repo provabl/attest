@@ -43,9 +43,9 @@ func TestExtractCN(t *testing.T) {
 	}{
 		{"CN=lab-genomics,OU=groups,DC=university,DC=edu", "lab-genomics"},
 		{"cn=research-team,OU=groups", "research-team"},
-		{"lab-group", "lab-group"},    // bare name, no CN= prefix
-		{"", ""},                       // empty
-		{"CN=,OU=groups", ""},          // empty CN value
+		{"lab-group", "lab-group"}, // bare name, no CN= prefix
+		{"", ""},                   // empty
+		{"CN=,OU=groups", ""},      // empty CN value
 	}
 	for _, tt := range tests {
 		got := extractCN(tt.dn)
@@ -363,11 +363,11 @@ func TestNIHPrincipalAttributes(t *testing.T) {
 		verify func(*testing.T, *schema.PrincipalAttributes)
 	}{
 		{
-			name: "nih-approval active with DUA ID",
+			name: "nih-approval active with multiple DUA IDs",
 			tags: map[string]string{
 				"attest:nih-approval":        "true",
 				"attest:nih-approval-expiry": expiry.Format(time.RFC3339),
-				"attest:nih-dua-id":          "DUA-2025-001234",
+				"attest:nih-dua-ids":         "phs000178+phs000200",
 			},
 			verify: func(t *testing.T, a *schema.PrincipalAttributes) {
 				if !a.NIHApprovalCurrent {
@@ -376,8 +376,14 @@ func TestNIHPrincipalAttributes(t *testing.T) {
 				if !a.NIHApprovalExpiry.Equal(expiry) {
 					t.Errorf("NIHApprovalExpiry = %v, want %v", a.NIHApprovalExpiry, expiry)
 				}
-				if a.NIHApprovalDUAID != "DUA-2025-001234" {
-					t.Errorf("NIHApprovalDUAID = %q, want DUA-2025-001234", a.NIHApprovalDUAID)
+				want := []string{"phs000178", "phs000200"}
+				if len(a.NIHApprovalDUAIDs) != len(want) {
+					t.Fatalf("NIHApprovalDUAIDs = %v, want %v", a.NIHApprovalDUAIDs, want)
+				}
+				for i, w := range want {
+					if a.NIHApprovalDUAIDs[i] != w {
+						t.Errorf("NIHApprovalDUAIDs[%d] = %q, want %q", i, a.NIHApprovalDUAIDs[i], w)
+					}
 				}
 			},
 		},
@@ -451,8 +457,8 @@ func TestNIHPrincipalAttributes(t *testing.T) {
 					if t2, err := time.Parse(time.RFC3339, v); err == nil {
 						attrs.NIHApprovalExpiry = t2
 					}
-				case "attest:nih-dua-id":
-					attrs.NIHApprovalDUAID = v
+				case "attest:nih-dua-ids":
+					attrs.NIHApprovalDUAIDs = strings.Split(v, schema.SetDelim)
 				case "attest:country":
 					attrs.InstitutionalAffiliationCountry = v
 				case "attest:coc-check-current":

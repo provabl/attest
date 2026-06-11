@@ -42,6 +42,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`attest:nih-dua-id` (string) → `attest:nih-dua-ids` (set)** — tag-schema **v2** (provabl#11,
+  attest#100; provabl ADR 0002). A researcher holds DUAs for multiple studies, and compute-to-data
+  binds each controlled dataset to a specific DUA, so the principal's approved DUAs become a set:
+  `PrincipalAttributes.NIHApprovalDUAIDs []string`, resolved from a `+`-delimited tag value (comma is
+  not a valid IAM tag-value character; `+` is, and DUA/phs ids never contain it — `schema.SetDelim`).
+  The schema JSON (byte-identical in both repos), `SchemaVersion` (1→2), the conformance test's
+  allowed types (adds `set`), the nih-gds framework's principal attributes, and the resolver all
+  move together. This is the first key change to exercise the qualify#32 versioned-schema guard. No
+  producer yet writes the singular key (attest#99's `attest approval` command is unbuilt), so this is
+  a clean rename with nothing deployed to be compatible with.
 - **Go 1.26.4**: bumped the `go` directive to clear the GO-2026-* standard-library advisories the
   weekly Security Scan flagged. (#101)
 - Copyright holder normalized to Playground Logic LLC.

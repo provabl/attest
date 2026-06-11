@@ -78,11 +78,11 @@ type ProvenanceConfig struct {
 // for a combined PHI (HIPAA) + NIH controlled-access genomic (NIH GDS) environment.
 func DefaultProvenanceConfig(closeoutDate *time.Time) *ProvenanceConfig {
 	return &ProvenanceConfig{
-		Enabled:                  true,
-		ProvenanceTagKey:         "data-source",
-		TagEnforcementSCPEnabled: true,
-		DatabaseProvenanceModel:  "separate_tables",
-		CloseoutDate:             closeoutDate,
+		Enabled:                       true,
+		ProvenanceTagKey:              "data-source",
+		TagEnforcementSCPEnabled:      true,
+		DatabaseProvenanceModel:       "separate_tables",
+		CloseoutDate:                  closeoutDate,
 		DeletionCertificationRequired: true,
 		LifecycleRules: []ProvenanceLifecycleRule{
 			{TagValue: "dbgap", Action: "delete_at_closeout", Framework: "nih-gds",
@@ -105,8 +105,8 @@ type Environment struct {
 	AccountID   string            `yaml:"account_id" json:"account_id"`
 	Name        string            `yaml:"name" json:"name"`
 	OU          string            `yaml:"ou" json:"ou"`
-	Owner       string            `yaml:"owner" json:"owner"`       // PI or lab
-	Purpose     string            `yaml:"purpose" json:"purpose"`   // e.g., "HIPAA genomics"
+	Owner       string            `yaml:"owner" json:"owner"`               // PI or lab
+	Purpose     string            `yaml:"purpose" json:"purpose"`           // e.g., "HIPAA genomics"
 	DataClasses []string          `yaml:"data_classes" json:"data_classes"` // CUI, PHI, FERPA, etc.
 	Tags        map[string]string `yaml:"tags,omitempty" json:"tags,omitempty"`
 	// ProvenanceConfig is non-nil when provenance tagging is configured.
@@ -214,12 +214,12 @@ type StructuralEnforcement struct {
 
 // OperationalEnforcement defines a Cedar policy for runtime evaluation.
 type OperationalEnforcement struct {
-	ID          string                `yaml:"id" json:"id"`
-	Description string                `yaml:"description" json:"description"`
-	Entities    []string              `yaml:"entities" json:"entities"` // entity types involved
-	Attributes  map[string][]string   `yaml:"attributes" json:"attributes"` // per-entity attributes to evaluate
-	CedarPolicy string                `yaml:"cedar_policy,omitempty" json:"cedar_policy,omitempty"` // raw Cedar policy text
-	Temporal    *TemporalConstraint   `yaml:"temporal,omitempty" json:"temporal,omitempty"`
+	ID          string              `yaml:"id" json:"id"`
+	Description string              `yaml:"description" json:"description"`
+	Entities    []string            `yaml:"entities" json:"entities"`                             // entity types involved
+	Attributes  map[string][]string `yaml:"attributes" json:"attributes"`                         // per-entity attributes to evaluate
+	CedarPolicy string              `yaml:"cedar_policy,omitempty" json:"cedar_policy,omitempty"` // raw Cedar policy text
+	Temporal    *TemporalConstraint `yaml:"temporal,omitempty" json:"temporal,omitempty"`
 
 	// AdminDependencies links this Cedar policy to the administrative controls
 	// whose correctness it depends on. When training lapses (3.2.2), the Cedar
@@ -251,7 +251,7 @@ type AssessmentSpec struct {
 
 // AssessmentObjective is a single testable assertion within a control.
 type AssessmentObjective struct {
-	ID          string `yaml:"id" json:"id"`     // e.g., "3.1.3[a]"
+	ID          string `yaml:"id" json:"id"` // e.g., "3.1.3[a]"
 	Description string `yaml:"description" json:"description"`
 
 	// AutoAssessable indicates whether attest can score this objective
@@ -272,18 +272,18 @@ type AssessmentObjective struct {
 
 // C3PAOEngagement tracks a formal CMMC C3PAO assessment engagement.
 type C3PAOEngagement struct {
-	ID             string    `yaml:"id" json:"id"`                           // e.g., "ASSESS-2026-Q2"
-	C3PAOOrg       string    `yaml:"c3pao_org" json:"c3pao_org"`              // e.g., "Vanta Security"
-	LeadAssessor   string    `yaml:"lead_assessor" json:"lead_assessor"`
-	AssessorTeam   []string  `yaml:"assessor_team,omitempty" json:"assessor_team,omitempty"`
-	FrameworkID    string    `yaml:"framework_id" json:"framework_id"`        // "nist-800-171-r2"
-	WindowStart    time.Time `yaml:"window_start" json:"window_start"`
-	WindowEnd      time.Time `yaml:"window_end" json:"window_end"`
-	Status         string    `yaml:"status" json:"status"`                    // "scheduled","active","closed"
-	SPRSScore      int       `yaml:"sprs_score,omitempty" json:"sprs_score,omitempty"`
-	SPRSSubmitted  time.Time `yaml:"sprs_submitted,omitempty" json:"sprs_submitted,omitempty"`
-	Notes          string    `yaml:"notes,omitempty" json:"notes,omitempty"`
-	CreatedAt      time.Time `yaml:"created_at" json:"created_at"`
+	ID            string    `yaml:"id" json:"id"`               // e.g., "ASSESS-2026-Q2"
+	C3PAOOrg      string    `yaml:"c3pao_org" json:"c3pao_org"` // e.g., "Vanta Security"
+	LeadAssessor  string    `yaml:"lead_assessor" json:"lead_assessor"`
+	AssessorTeam  []string  `yaml:"assessor_team,omitempty" json:"assessor_team,omitempty"`
+	FrameworkID   string    `yaml:"framework_id" json:"framework_id"` // "nist-800-171-r2"
+	WindowStart   time.Time `yaml:"window_start" json:"window_start"`
+	WindowEnd     time.Time `yaml:"window_end" json:"window_end"`
+	Status        string    `yaml:"status" json:"status"` // "scheduled","active","closed"
+	SPRSScore     int       `yaml:"sprs_score,omitempty" json:"sprs_score,omitempty"`
+	SPRSSubmitted time.Time `yaml:"sprs_submitted,omitempty" json:"sprs_submitted,omitempty"`
+	Notes         string    `yaml:"notes,omitempty" json:"notes,omitempty"`
+	CreatedAt     time.Time `yaml:"created_at" json:"created_at"`
 }
 
 // --- Crosswalk and Posture ---
@@ -292,7 +292,7 @@ type C3PAOEngagement struct {
 // policy artifacts. This is the core output of `attest compile`.
 type Crosswalk struct {
 	SRE         string           `yaml:"sre" json:"sre"`
-	Framework   string           `yaml:"framework" json:"framework"`     // kept for backward compatibility
+	Framework   string           `yaml:"framework" json:"framework"`                       // kept for backward compatibility
 	Frameworks  []string         `yaml:"frameworks,omitempty" json:"frameworks,omitempty"` // all active frameworks
 	GeneratedAt time.Time        `yaml:"generated_at" json:"generated_at"`
 	Entries     []CrosswalkEntry `yaml:"entries" json:"entries"`
@@ -306,19 +306,19 @@ type CrosswalkEntry struct {
 	CedarPolicies   []string `yaml:"cedar_policies,omitempty" json:"cedar_policies,omitempty"`
 	ConfigRules     []string `yaml:"config_rules,omitempty" json:"config_rules,omitempty"`
 	ArtifactReports []string `yaml:"artifact_reports,omitempty" json:"artifact_reports,omitempty"` // AWS-side evidence
-	Status          string   `yaml:"status" json:"status"` // "enforced", "partial", "gap", "aws_covered"
+	Status          string   `yaml:"status" json:"status"`                                         // "enforced", "partial", "gap", "aws_covered"
 }
 
 // Posture is the computed compliance state of an SRE at a point in time.
 type Posture struct {
-	ComputedAt    time.Time                 `yaml:"computed_at" json:"computed_at"`
-	Frameworks    map[string]FrameworkPosture `yaml:"frameworks" json:"frameworks"`
-	TotalControls int                        `yaml:"total_controls" json:"total_controls"`
-	Enforced      int                        `yaml:"enforced" json:"enforced"`
-	Partial       int                        `yaml:"partial" json:"partial"`
-	Gaps          int                        `yaml:"gaps" json:"gaps"`
-	AWSCovered     int                        `yaml:"aws_covered" json:"aws_covered"`
-	CrossSatisfied int                        `yaml:"cross_satisfied" json:"cross_satisfied"` // via supersession
+	ComputedAt     time.Time                   `yaml:"computed_at" json:"computed_at"`
+	Frameworks     map[string]FrameworkPosture `yaml:"frameworks" json:"frameworks"`
+	TotalControls  int                         `yaml:"total_controls" json:"total_controls"`
+	Enforced       int                         `yaml:"enforced" json:"enforced"`
+	Partial        int                         `yaml:"partial" json:"partial"`
+	Gaps           int                         `yaml:"gaps" json:"gaps"`
+	AWSCovered     int                         `yaml:"aws_covered" json:"aws_covered"`
+	CrossSatisfied int                         `yaml:"cross_satisfied" json:"cross_satisfied"` // via supersession
 }
 
 // CrossSatisfactionRef records how a control in one framework is satisfied by the
@@ -347,16 +347,16 @@ type FrameworkPosture struct {
 // requiring USB transfer), the waiver documents the exception, its
 // compensating controls, and its expiry.
 type Waiver struct {
-	ID                 string    `yaml:"id" json:"id"`                                     // e.g., "W-2025-003"
-	ControlID          string    `yaml:"control_id" json:"control_id"`                     // control being waived
-	Title              string    `yaml:"title" json:"title"`                               // human-readable description
-	Scope              string    `yaml:"scope" json:"scope"`                               // environment or OU scope
-	ApprovedBy         string    `yaml:"approved_by" json:"approved_by"`                   // approver (e.g., "CISO Dr. Park")
-	ApprovedAt         time.Time `yaml:"approved_at" json:"approved_at"`
-	ExpiresAt          time.Time `yaml:"expires_at" json:"expires_at"`
-	Status             string    `yaml:"status" json:"status"`                             // "active", "expiring", "expired"
-	Justification      string    `yaml:"justification" json:"justification"`
-	CompensatingControls []string `yaml:"compensating_controls" json:"compensating_controls"`
+	ID                   string    `yaml:"id" json:"id"`                   // e.g., "W-2025-003"
+	ControlID            string    `yaml:"control_id" json:"control_id"`   // control being waived
+	Title                string    `yaml:"title" json:"title"`             // human-readable description
+	Scope                string    `yaml:"scope" json:"scope"`             // environment or OU scope
+	ApprovedBy           string    `yaml:"approved_by" json:"approved_by"` // approver (e.g., "CISO Dr. Park")
+	ApprovedAt           time.Time `yaml:"approved_at" json:"approved_at"`
+	ExpiresAt            time.Time `yaml:"expires_at" json:"expires_at"`
+	Status               string    `yaml:"status" json:"status"` // "active", "expiring", "expired"
+	Justification        string    `yaml:"justification" json:"justification"`
+	CompensatingControls []string  `yaml:"compensating_controls" json:"compensating_controls"`
 }
 
 // --- Incidents ---
@@ -364,15 +364,15 @@ type Waiver struct {
 // Incident tracks a security event through its lifecycle.
 // Incidents degrade affected control postures and generate POA&M entries.
 type Incident struct {
-	ID            string    `yaml:"id" json:"id"`                       // e.g., "INC-2025-012"
-	Title         string    `yaml:"title" json:"title"`
-	Severity      string    `yaml:"severity" json:"severity"`           // "critical", "high", "medium", "low"
-	DetectedAt    time.Time `yaml:"detected_at" json:"detected_at"`
-	ResolvedAt    time.Time `yaml:"resolved_at,omitempty" json:"resolved_at,omitempty"`
-	Status        string    `yaml:"status" json:"status"`               // "open", "investigating", "remediated", "closed"
-	AffectedControls []string `yaml:"affected_controls" json:"affected_controls"` // control IDs
-	Remediation   string    `yaml:"remediation" json:"remediation"`
-	Source        string    `yaml:"source" json:"source"`               // "guardduty", "securityhub", "cedar", "manual"
+	ID               string    `yaml:"id" json:"id"` // e.g., "INC-2025-012"
+	Title            string    `yaml:"title" json:"title"`
+	Severity         string    `yaml:"severity" json:"severity"` // "critical", "high", "medium", "low"
+	DetectedAt       time.Time `yaml:"detected_at" json:"detected_at"`
+	ResolvedAt       time.Time `yaml:"resolved_at,omitempty" json:"resolved_at,omitempty"`
+	Status           string    `yaml:"status" json:"status"`                       // "open", "investigating", "remediated", "closed"
+	AffectedControls []string  `yaml:"affected_controls" json:"affected_controls"` // control IDs
+	Remediation      string    `yaml:"remediation" json:"remediation"`
+	Source           string    `yaml:"source" json:"source"` // "guardduty", "securityhub", "cedar", "manual"
 }
 
 // --- Principal Attributes ---
@@ -385,10 +385,10 @@ type Incident struct {
 // tags to the typed fields below. See docs/integrations/qualify.md for
 // the full tag schema.
 type PrincipalAttributes struct {
-	PrincipalARN      string    `json:"principal_arn"`
-	HumanIdentity     string    `json:"human_identity,omitempty"`      // resolved human behind the role
-	LabMembership     []string  `json:"lab_membership,omitempty"`      // from directory/HR
-	AdminLevel        string    `json:"admin_level,omitempty"`         // "none", "env", "sre"
+	PrincipalARN  string   `json:"principal_arn"`
+	HumanIdentity string   `json:"human_identity,omitempty"` // resolved human behind the role
+	LabMembership []string `json:"lab_membership,omitempty"` // from directory/HR
+	AdminLevel    string   `json:"admin_level,omitempty"`    // "none", "env", "sre"
 
 	// --- Training attributes (written by qualify, read by Cedar policies) ---
 
@@ -425,8 +425,10 @@ type PrincipalAttributes struct {
 	NIHApprovalCurrent bool `json:"nih_approval_current"`
 	// NIHApprovalExpiry is when the NIH Approved User status expires (DUA term end).
 	NIHApprovalExpiry time.Time `json:"nih_approval_expiry,omitempty"`
-	// NIHApprovalDUAID is the specific DUA this approval is issued under.
-	NIHApprovalDUAID string `json:"nih_approval_dua_id,omitempty"`
+	// NIHApprovalDUAIDs are the DUA / study ids this principal is approved
+	// under — one per controlled-access dataset. Compute-to-data binds each
+	// dataset to a specific DUA, so this is a set, not a single id.
+	NIHApprovalDUAIDs []string `json:"nih_approval_dua_ids,omitempty"`
 
 	// --- Institutional affiliation (countries-of-concern, NOT-OD-25-083) ---
 	// Based on institutional affiliation, not citizenship or nationality.
@@ -440,9 +442,9 @@ type PrincipalAttributes struct {
 
 	// --- Source-system attributes ---
 
-	IRBProtocols      []string          `json:"irb_protocols,omitempty"`       // from IRB system (Cayuse/iRIS)
-	ComputeAllocation float64           `json:"compute_allocation,omitempty"`  // from research computing
-	Attributes        map[string]string `json:"attributes,omitempty"`          // extensible attributes
+	IRBProtocols      []string          `json:"irb_protocols,omitempty"`      // from IRB system (Cayuse/iRIS)
+	ComputeAllocation float64           `json:"compute_allocation,omitempty"` // from research computing
+	Attributes        map[string]string `json:"attributes,omitempty"`         // extensible attributes
 }
 
 // --- Workload Attributes ---
@@ -493,50 +495,50 @@ type PlatformAttributes struct {
 
 // CedarDecision records a single Cedar PDP authorization decision.
 type CedarDecision struct {
-	Timestamp   time.Time `json:"timestamp"`
-	Action      string    `json:"action"`       // e.g., "s3:PutObject"
-	Principal   string    `json:"principal"`     // IAM ARN
-	Resource    string    `json:"resource"`      // resource ARN
-	Effect      string    `json:"effect"`        // "ALLOW", "DENY"
-	PolicyID    string    `json:"policy_id"`     // which Cedar policy made the decision
-	ControlID   string    `json:"control_id"`    // framework control satisfied
-	AccountID   string    `json:"account_id"`
-	WaiverID    string    `json:"waiver_id,omitempty"` // if allowed via waiver
-	DenyReason  string    `json:"deny_reason,omitempty"`
+	Timestamp  time.Time `json:"timestamp"`
+	Action     string    `json:"action"`     // e.g., "s3:PutObject"
+	Principal  string    `json:"principal"`  // IAM ARN
+	Resource   string    `json:"resource"`   // resource ARN
+	Effect     string    `json:"effect"`     // "ALLOW", "DENY"
+	PolicyID   string    `json:"policy_id"`  // which Cedar policy made the decision
+	ControlID  string    `json:"control_id"` // framework control satisfied
+	AccountID  string    `json:"account_id"`
+	WaiverID   string    `json:"waiver_id,omitempty"` // if allowed via waiver
+	DenyReason string    `json:"deny_reason,omitempty"`
 }
 
 // --- Policy Testing ---
 
 // PolicyTestSuite defines a set of test scenarios for Cedar policies.
 type PolicyTestSuite struct {
-	Name  string       `yaml:"name" json:"name"`
+	Name  string           `yaml:"name" json:"name"`
 	Cases []PolicyTestCase `yaml:"cases" json:"cases"`
 }
 
 // PolicyTestCase is a single test scenario.
 type PolicyTestCase struct {
-	Description string            `yaml:"description" json:"description"`
-	Principal   map[string]any    `yaml:"principal" json:"principal"`     // entity attributes
-	Action      string            `yaml:"action" json:"action"`
-	Resource    map[string]any    `yaml:"resource" json:"resource"`       // entity attributes
-	Expected    string            `yaml:"expected" json:"expected"`       // "ALLOW" or "DENY"
-	ControlID   string            `yaml:"control_id" json:"control_id"`
+	Description string         `yaml:"description" json:"description"`
+	Principal   map[string]any `yaml:"principal" json:"principal"` // entity attributes
+	Action      string         `yaml:"action" json:"action"`
+	Resource    map[string]any `yaml:"resource" json:"resource"` // entity attributes
+	Expected    string         `yaml:"expected" json:"expected"` // "ALLOW" or "DENY"
+	ControlID   string         `yaml:"control_id" json:"control_id"`
 }
 
 // --- IaC Output ---
 
 // IaCManifest describes the generated IaC artifacts from attest compile.
 type IaCManifest struct {
-	Format      string    `json:"format"`       // "terraform", "cdk"
-	GeneratedAt time.Time `json:"generated_at"`
+	Format      string      `json:"format"` // "terraform", "cdk"
+	GeneratedAt time.Time   `json:"generated_at"`
 	Modules     []IaCModule `json:"modules"`
 }
 
 // IaCModule is a single IaC module or construct.
 type IaCModule struct {
-	Name     string   `json:"name"`      // e.g., "scps", "config-rules", "eventbridge"
-	Path     string   `json:"path"`      // output directory
-	Controls []string `json:"controls"`  // framework controls satisfied
+	Name     string   `json:"name"`     // e.g., "scps", "config-rules", "eventbridge"
+	Path     string   `json:"path"`     // output directory
+	Controls []string `json:"controls"` // framework controls satisfied
 }
 
 // --- Posture History ---
@@ -555,17 +557,17 @@ type PostureSnapshot struct {
 // human processes — training programs, risk assessments, IR testing — that attest
 // tracks via attestation records with bounded validity periods.
 type Attestation struct {
-	ID             string    `yaml:"id" json:"id"`                                 // e.g., "ATT-2026-003"
-	ControlID      string    `yaml:"control_id" json:"control_id"`                 // e.g., "3.2.1"
+	ID             string    `yaml:"id" json:"id"`                                         // e.g., "ATT-2026-003"
+	ControlID      string    `yaml:"control_id" json:"control_id"`                         // e.g., "3.2.1"
 	ObjectiveID    string    `yaml:"objective_id,omitempty" json:"objective_id,omitempty"` // e.g., "3.2.1[a]"
 	Title          string    `yaml:"title" json:"title"`
-	AffirmedBy     string    `yaml:"affirmed_by" json:"affirmed_by"`               // e.g., "CISO Dr. Park"
+	AffirmedBy     string    `yaml:"affirmed_by" json:"affirmed_by"` // e.g., "CISO Dr. Park"
 	AffirmedAt     time.Time `yaml:"affirmed_at" json:"affirmed_at"`
 	ExpiresAt      time.Time `yaml:"expires_at" json:"expires_at"`
-	EvidenceRef    string    `yaml:"evidence_ref" json:"evidence_ref"`             // path/URL/description
-	EvidenceType   string    `yaml:"evidence_type" json:"evidence_type"`           // "policy_doc", "training_record", "test_report", "manual"
+	EvidenceRef    string    `yaml:"evidence_ref" json:"evidence_ref"`                           // path/URL/description
+	EvidenceType   string    `yaml:"evidence_type" json:"evidence_type"`                         // "policy_doc", "training_record", "test_report", "manual"
 	ReviewSchedule string    `yaml:"review_schedule,omitempty" json:"review_schedule,omitempty"` // "annual", "semiannual", "quarterly"
-	Status         string    `yaml:"status" json:"status"`                         // "current", "expiring", "expired"
+	Status         string    `yaml:"status" json:"status"`                                       // "current", "expiring", "expired"
 	Notes          string    `yaml:"notes,omitempty" json:"notes,omitempty"`
 }
 
@@ -593,10 +595,10 @@ type AdminDependency struct {
 // ClassificationScheme maps an institutional data classification system
 // (e.g., UC P-levels) to attest data classes and compliance frameworks.
 type ClassificationScheme struct {
-	SchemeID    string                         `yaml:"scheme_id" json:"scheme_id"`
-	Name        string                         `yaml:"name" json:"name"`
-	Description string                         `yaml:"description" json:"description"`
-	Source      string                         `yaml:"source" json:"source"`
+	SchemeID    string                           `yaml:"scheme_id" json:"scheme_id"`
+	Name        string                           `yaml:"name" json:"name"`
+	Description string                           `yaml:"description" json:"description"`
+	Source      string                           `yaml:"source" json:"source"`
 	Mappings    map[string]ClassificationMapping `yaml:"mappings" json:"mappings"`
 }
 
@@ -618,20 +620,20 @@ type ClassificationMapping struct {
 // The combination of funding sources, data types, participant populations,
 // and collaborator institutions determines the complete compliance obligation set.
 type ResearchProject struct {
-	ID          string `yaml:"id" json:"id"`           // short slug, e.g., "chen-quantum-cui"
-	Name        string `yaml:"name" json:"name"`        // human-readable
-	PIName      string `yaml:"pi_name" json:"pi_name"`
-	PIEmail     string `yaml:"pi_email" json:"pi_email"`
-	Active      bool   `yaml:"active" json:"active"`
+	ID      string `yaml:"id" json:"id"`     // short slug, e.g., "chen-quantum-cui"
+	Name    string `yaml:"name" json:"name"` // human-readable
+	PIName  string `yaml:"pi_name" json:"pi_name"`
+	PIEmail string `yaml:"pi_email" json:"pi_email"`
+	Active  bool   `yaml:"active" json:"active"`
 
-	Funding      []GrantRef          `yaml:"funding,omitempty" json:"funding,omitempty"`
-	DataTypes    []string            `yaml:"data_types,omitempty" json:"data_types,omitempty"`       // CUI, PHI, GENOMIC, FERPA, PII, OPEN
-	Sensitivity  string              `yaml:"data_sensitivity,omitempty" json:"data_sensitivity,omitempty"` // "controlled", "sensitive", "open"
-	Environments []string            `yaml:"environments,omitempty" json:"environments,omitempty"`   // AWS account IDs in scope
-	Collaborators []CollaboratorRef  `yaml:"collaborators,omitempty" json:"collaborators,omitempty"`
+	Funding       []GrantRef        `yaml:"funding,omitempty" json:"funding,omitempty"`
+	DataTypes     []string          `yaml:"data_types,omitempty" json:"data_types,omitempty"`             // CUI, PHI, GENOMIC, FERPA, PII, OPEN
+	Sensitivity   string            `yaml:"data_sensitivity,omitempty" json:"data_sensitivity,omitempty"` // "controlled", "sensitive", "open"
+	Environments  []string          `yaml:"environments,omitempty" json:"environments,omitempty"`         // AWS account IDs in scope
+	Collaborators []CollaboratorRef `yaml:"collaborators,omitempty" json:"collaborators,omitempty"`
 
 	// Research-specific compliance state
-	IRBProtocol       string    `yaml:"irb_protocol,omitempty" json:"irb_protocol,omitempty"`            // IRB protocol number
+	IRBProtocol       string    `yaml:"irb_protocol,omitempty" json:"irb_protocol,omitempty"` // IRB protocol number
 	IRBExpiry         time.Time `yaml:"irb_expiry,omitempty" json:"irb_expiry,omitempty"`
 	ClinicalTrialsNCT string    `yaml:"clinicaltrials_nct,omitempty" json:"clinicaltrials_nct,omitempty"` // NCT identifier
 	DBGaPAccessions   []string  `yaml:"dbgap_accessions,omitempty" json:"dbgap_accessions,omitempty"`
@@ -656,7 +658,7 @@ type GrantRef struct {
 type CollaboratorRef struct {
 	Name        string `yaml:"name" json:"name"`
 	Institution string `yaml:"institution" json:"institution"`
-	Country     string `yaml:"country" json:"country"` // ISO 3166-1 alpha-2, e.g., "US", "CN", "DE"
+	Country     string `yaml:"country" json:"country"`               // ISO 3166-1 alpha-2, e.g., "US", "CN", "DE"
 	Role        string `yaml:"role,omitempty" json:"role,omitempty"` // "co-pi", "postdoc", "collaborator"
 }
 
@@ -670,7 +672,7 @@ type ProjectsFile struct {
 type NavigationAlert struct {
 	ID          string     `yaml:"id" json:"id"`
 	ProjectID   string     `yaml:"project_id" json:"project_id"`
-	Severity    string     `yaml:"severity" json:"severity"`       // "critical" | "required" | "recommended"
+	Severity    string     `yaml:"severity" json:"severity"` // "critical" | "required" | "recommended"
 	Title       string     `yaml:"title" json:"title"`
 	Detail      string     `yaml:"detail" json:"detail"`
 	Trigger     string     `yaml:"trigger" json:"trigger"`
