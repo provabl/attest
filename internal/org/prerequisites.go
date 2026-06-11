@@ -12,8 +12,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	cttrail "github.com/aws/aws-sdk-go-v2/service/cloudtrail"
 	"github.com/aws/aws-sdk-go-v2/service/guardduty"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/securityhub"
 	"github.com/aws/aws-sdk-go-v2/service/ssoadmin"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 // PrereqResult is the outcome of a single prerequisite check.
@@ -37,27 +40,27 @@ type PrereqResult struct {
 // ground does not deploy detection services. attest manages GuardDuty, Security Hub,
 // and Macie based on active compliance frameworks via 'attest compile' + 'attest apply'.
 type GroundMeta struct {
-	GroundVersion             string            `json:"ground_version"`
-	Region                    string            `json:"region"`
-	CloudTrailEnabled         bool              `json:"cloudtrail_enabled"`
-	ConfigEnabled             bool              `json:"config_enabled"`
-	LogArchiveAccountID       string            `json:"log_archive_account_id,omitempty"`
-	IdentityCenterInstanceARN string            `json:"identity_center_instance_arn,omitempty"`
+	GroundVersion             string `json:"ground_version"`
+	Region                    string `json:"region"`
+	CloudTrailEnabled         bool   `json:"cloudtrail_enabled"`
+	ConfigEnabled             bool   `json:"config_enabled"`
+	LogArchiveAccountID       string `json:"log_archive_account_id,omitempty"`
+	IdentityCenterInstanceARN string `json:"identity_center_instance_arn,omitempty"`
 	// ExternalServices lists non-AWS services declared in ground.yaml.
 	// attest uses these to assess controls satisfied by those services.
-	ExternalServices          []ExternalService `json:"external_services,omitempty"`
+	ExternalServices []ExternalService `json:"external_services,omitempty"`
 }
 
 // ExternalService is a non-AWS service deployed in the SRE (from ground.yaml).
 // Category: edr, siem, cspm, cwpp, data-transfer, vuln-scanning, identity, research-platform
 // Features: fedramp-high, fedramp-moderate, baa, hipaa-compliant, high-assurance, soc2-type2
 type ExternalService struct {
-	Name        string         `json:"name"`
-	Vendor      string         `json:"vendor"`
-	Category    string         `json:"category"`
-	Features    []string       `json:"features,omitempty"`
-	Scope       []string       `json:"scope,omitempty"` // OU names; empty = org-wide
-	Notes       string         `json:"notes,omitempty"`
+	Name     string   `json:"name"`
+	Vendor   string   `json:"vendor"`
+	Category string   `json:"category"`
+	Features []string `json:"features,omitempty"`
+	Scope    []string `json:"scope,omitempty"` // OU names; empty = org-wide
+	Notes    string   `json:"notes,omitempty"`
 	// Probe and ProbeConfig mirror the ground.yaml fields so probe declarations
 	// survive round-trip through ground-meta.json without silent field loss.
 	Probe       string         `json:"probe,omitempty"`
@@ -280,6 +283,118 @@ func checkIdentityCenter(ctx context.Context, ssoAdmin *ssoadmin.Client) PrereqR
 		Status:   true,
 		Detail:   instanceArn + " (will be auto-added to SSP system boundary)",
 	}
+}
+
+// --- caller-permission preflight (provabl#16) ---------------------------------
+
+// stsIdentityAPI is the subset of the STS client used to resolve the caller ARN.
+// An interface so tests can supply a fake (mirrors the configAPI precedent).
+type stsIdentityAPI interface {
+	GetCallerIdentity(ctx context.Context, in *sts.GetCallerIdentityInput, optFns ...func(*sts.Options)) (*sts.GetCallerIdentityOutput, error)
+}
+
+// iamSimAPI is the subset of the IAM client used to simulate the caller's policies.
+type iamSimAPI interface {
+	SimulatePrincipalPolicy(ctx context.Context, in *iam.SimulatePrincipalPolicyInput, optFns ...func(*iam.Options)) (*iam.SimulatePrincipalPolicyOutput, error)
+}
+
+// attestRequiredActions are the AWS IAM actions attest itself needs to run its
+// core read/eval flow (init, scan, principal resolution, posture). Sourced from
+// provabl/docs/required-permissions.md (attest row) and attest's real SDK calls.
+// Kept to the read/eval core: the continuous-evaluation write path (eventbridge,
+// sqs) and the AI navigator (bedrock) are optional/commercial and not gated here.
+// iam:SimulatePrincipalPolicy is included because the preflight itself needs it.
+var attestRequiredActions = []string{
+	"sts:GetCallerIdentity",
+	"organizations:DescribeOrganization",
+	"organizations:ListRoots",
+	"iam:ListRoles",
+	"iam:GetRole",
+	"iam:ListRoleTags",
+	"iam:SimulatePrincipalPolicy",
+	"cloudformation:DescribeStacks",
+	"cloudtrail:DescribeTrails",
+	"config:DescribeConfigurationRecorders",
+}
+
+// CheckCallerPermissions verifies the calling principal holds the IAM actions
+// attest needs, via iam:SimulatePrincipalPolicy (read-only — it evaluates, it does
+// not act). It complements the org-posture checks: those ask "is the environment
+// set up?"; this asks "can the principal running attest actually do its work here?"
+// Other suite tools' permissions are documented in required-permissions.md and
+// tracked in provabl#16.
+//
+// Fail-closed: if the caller ARN can't be resolved or the simulator can't be
+// called, that is an error result (not a silent pass) — an un-checkable
+// environment is treated as not-ready.
+func (a *Analyzer) CheckCallerPermissions(ctx context.Context) []PrereqResult {
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(func() string {
+		if a.region != "" {
+			return a.region
+		}
+		return "us-east-1"
+	}()))
+	if err != nil {
+		return []PrereqResult{{
+			Name: "AWS credentials", Severity: "error", Status: false,
+			Detail:      err.Error(),
+			Remediation: "Configure AWS credentials: aws configure or set AWS_PROFILE",
+		}}
+	}
+	return checkCallerPermissions(ctx, sts.NewFromConfig(cfg), iam.NewFromConfig(cfg))
+}
+
+// checkCallerPermissions is the testable core: resolve the caller ARN, simulate
+// the required actions against it, and map the result to PrereqResults.
+func checkCallerPermissions(ctx context.Context, stsSvc stsIdentityAPI, iamSvc iamSimAPI) []PrereqResult {
+	ident, err := stsSvc.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		return []PrereqResult{{
+			Name: "Caller identity", Severity: "error", Status: false,
+			Detail:      fmt.Sprintf("sts:GetCallerIdentity failed: %v", err),
+			Remediation: "Ensure valid AWS credentials with sts:GetCallerIdentity",
+		}}
+	}
+	callerARN := aws.ToString(ident.Arn)
+
+	out, err := iamSvc.SimulatePrincipalPolicy(ctx, &iam.SimulatePrincipalPolicyInput{
+		PolicySourceArn: aws.String(callerARN),
+		ActionNames:     attestRequiredActions,
+	})
+	if err != nil {
+		// Fail-closed: an un-runnable self-check is an error, not a pass.
+		return []PrereqResult{{
+			Name: "IAM permission self-check", Severity: "error", Status: false,
+			Detail:      fmt.Sprintf("iam:SimulatePrincipalPolicy failed for %s: %v", callerARN, err),
+			Remediation: "Grant iam:SimulatePrincipalPolicy to run the permission preflight (or review required-permissions.md manually)",
+		}}
+	}
+
+	// One result per evaluated action: allowed → ok, any deny → error.
+	var results []PrereqResult
+	for _, ev := range out.EvaluationResults {
+		action := aws.ToString(ev.EvalActionName)
+		if ev.EvalDecision == iamtypes.PolicyEvaluationDecisionTypeAllowed {
+			results = append(results, PrereqResult{
+				Name: "IAM: " + action, Severity: "ok", Status: true, Detail: "allowed",
+			})
+			continue
+		}
+		results = append(results, PrereqResult{
+			Name: "IAM: " + action, Severity: "error", Status: false,
+			Detail:      fmt.Sprintf("%s for %s", string(ev.EvalDecision), callerARN),
+			Remediation: "Grant " + action + " to the attest principal (see required-permissions.md)",
+		})
+	}
+	if len(results) == 0 {
+		// No evaluation results at all is itself a fail-closed condition.
+		return []PrereqResult{{
+			Name: "IAM permission self-check", Severity: "error", Status: false,
+			Detail:      "simulator returned no evaluation results",
+			Remediation: "Review required-permissions.md and the attest principal's policy",
+		}}
+	}
+	return results
 }
 
 // --- helpers ------------------------------------------------------------------
