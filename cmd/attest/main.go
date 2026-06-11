@@ -32,24 +32,15 @@ import (
 	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 
 	"github.com/provabl/attest/internal/ai"
-	"github.com/provabl/attest/internal/obligations"
-	"github.com/provabl/attest/internal/regulatory"
-	"github.com/provabl/attest/internal/auth"
-	"github.com/provabl/attest/internal/output"
-	"github.com/provabl/attest/internal/dashboard"
-	"github.com/provabl/attest/internal/document/cmmc"
-	"github.com/provabl/attest/internal/integrations/grc"
-	"github.com/provabl/attest/internal/multisre"
-	"github.com/provabl/attest/internal/principal"
-	"github.com/provabl/attest/internal/platform"
-	"github.com/provabl/attest/internal/workload"
-	"github.com/provabl/attest/internal/provision"
 	"github.com/provabl/attest/internal/artifact"
 	"github.com/provabl/attest/internal/attestation"
+	"github.com/provabl/attest/internal/auth"
 	compilerce "github.com/provabl/attest/internal/compiler/cedar"
 	compilerscp "github.com/provabl/attest/internal/compiler/scp"
+	"github.com/provabl/attest/internal/dashboard"
 	"github.com/provabl/attest/internal/deploy"
 	assessmentpkg "github.com/provabl/attest/internal/document/assessment"
+	"github.com/provabl/attest/internal/document/cmmc"
 	"github.com/provabl/attest/internal/document/dmsp"
 	osalexport "github.com/provabl/attest/internal/document/oscal"
 	"github.com/provabl/attest/internal/document/poam"
@@ -57,11 +48,20 @@ import (
 	"github.com/provabl/attest/internal/evaluator"
 	"github.com/provabl/attest/internal/framework"
 	"github.com/provabl/attest/internal/iac"
+	"github.com/provabl/attest/internal/integrations/grc"
+	"github.com/provabl/attest/internal/multisre"
+	"github.com/provabl/attest/internal/obligations"
 	"github.com/provabl/attest/internal/org"
+	"github.com/provabl/attest/internal/output"
+	"github.com/provabl/attest/internal/platform"
+	"github.com/provabl/attest/internal/principal"
+	"github.com/provabl/attest/internal/provision"
+	"github.com/provabl/attest/internal/regulatory"
 	"github.com/provabl/attest/internal/reporting"
 	"github.com/provabl/attest/internal/store"
 	attesttesting "github.com/provabl/attest/internal/testing"
 	"github.com/provabl/attest/internal/waiver"
+	"github.com/provabl/attest/internal/workload"
 	"github.com/provabl/attest/pkg/schema"
 )
 
@@ -880,7 +880,6 @@ func topoSort(ids []string, loaded map[string]*schema.Framework) []string {
 	return ordered
 }
 
-
 func compileCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "compile",
@@ -1103,9 +1102,9 @@ func buildCrosswalk(sre *schema.SRE, frameworks []*schema.Framework, scps []comp
 	for _, fw := range frameworks {
 		for _, ctrl := range fw.Controls {
 			entry := schema.CrosswalkEntry{
-				ControlID:   ctrl.ID,
-				FrameworkID: fw.ID,
-				SCPs:        scpsByControl[ctrl.ID],
+				ControlID:     ctrl.ID,
+				FrameworkID:   fw.ID,
+				SCPs:          scpsByControl[ctrl.ID],
 				CedarPolicies: cedarByControl[ctrl.ID],
 			}
 			switch {
@@ -1345,7 +1344,8 @@ func preflightCmd() *cobra.Command {
   - Organization feature set (ALL features required)
   - SCP policy type enabled on root
   - SCP quota: current usage vs. compiled SCP count
-  - IAM permissions for deployment
+  - IAM permissions: the calling principal holds attest's required actions
+    (checked via iam:SimulatePrincipalPolicy; see required-permissions.md)
 
 Run this before 'attest apply' to catch issues early.
 
@@ -1415,6 +1415,20 @@ that fit within this limit alongside the FullAWSAccess default policy.`,
 						} else {
 							pass("SCP quota: %d compiled, %d total after apply (within limit of %d)",
 								compiledCount, projectedTotal, deploy.SCPPerTargetLimit)
+						}
+					}
+				}
+			}
+
+			// Check 3: the calling principal holds attest's required IAM actions.
+			{
+				for _, r := range analyzer.CheckCallerPermissions(ctx) {
+					if r.Status {
+						pass("%s: %s", r.Name, r.Detail)
+					} else {
+						fail("%s: %s", r.Name, r.Detail)
+						if r.Remediation != "" {
+							output.Printf("      Remediation: %s\n", r.Remediation)
 						}
 					}
 				}
@@ -1620,7 +1634,6 @@ func loadCedarPolicies(dir string) (*cedar.PolicySet, error) {
 	}
 	return ps, nil
 }
-
 
 func generateCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -2335,7 +2348,7 @@ Assessment types:
 			level1Practices := map[string]bool{
 				"AC.L1-3.1.1": true, "AC.L1-3.1.2": true, "AC.L1-3.1.20": true, "AC.L1-3.1.22": true,
 				"IA.L1-3.5.1": true, "IA.L1-3.5.2": true,
-				"MP.L1-3.8.3": true,
+				"MP.L1-3.8.3":  true,
 				"PE.L1-3.10.1": true, "PE.L1-3.10.3": true, "PE.L1-3.10.4": true, "PE.L1-3.10.5": true,
 				"SC.L1-3.13.1": true, "SC.L1-3.13.5": true,
 				"SI.L1-3.14.1": true, "SI.L1-3.14.2": true,
@@ -2344,7 +2357,7 @@ Assessment types:
 			level1NistMap := map[string]string{
 				"AC.L1-3.1.1": "3.1.1", "AC.L1-3.1.2": "3.1.2", "AC.L1-3.1.20": "3.1.20", "AC.L1-3.1.22": "3.1.22",
 				"IA.L1-3.5.1": "3.5.1", "IA.L1-3.5.2": "3.5.2",
-				"MP.L1-3.8.3": "3.8.3",
+				"MP.L1-3.8.3":  "3.8.3",
 				"PE.L1-3.10.1": "3.10.1", "PE.L1-3.10.3": "3.10.3", "PE.L1-3.10.4": "3.10.4", "PE.L1-3.10.5": "3.10.5",
 				"SC.L1-3.13.1": "3.13.1", "SC.L1-3.13.5": "3.13.5",
 				"SI.L1-3.14.1": "3.14.1", "SI.L1-3.14.2": "3.14.2",
@@ -2470,14 +2483,14 @@ Output: .attest/documents/dmsp.md`,
 
 			plan := &dmsp.Plan{
 				SRE:             sre,
-				Crosswalk:        crosswalk,
-				PIName:           piName,
-				PIEmail:          piEmail,
-				GrantNumber:      grantNum,
-				InstitutionName:  institution,
-				ProjectTitle:     projectTitle,
-				FundingICCode:    icCode,
-				GeneratedAt:      time.Now(),
+				Crosswalk:       crosswalk,
+				PIName:          piName,
+				PIEmail:         piEmail,
+				GrantNumber:     grantNum,
+				InstitutionName: institution,
+				ProjectTitle:    projectTitle,
+				FundingICCode:   icCode,
+				GeneratedAt:     time.Now(),
 				// Default repositories for NIH research.
 				Repositories: []dmsp.Repository{
 					{Name: "dbGaP", URL: "https://www.ncbi.nlm.nih.gov/gap/", Access: "controlled", NIHDesignated: true},
@@ -2986,8 +2999,12 @@ Use 'attest ai translate' to generate proposed policies from natural language.`,
 
 			// Count policies.
 			currentCount, proposedCount := 0, 0
-			for range currentPS.All() { currentCount++ }
-			for range proposedPS.All() { proposedCount++ }
+			for range currentPS.All() {
+				currentCount++
+			}
+			for range proposedPS.All() {
+				proposedCount++
+			}
 			output.Printf("Simulating: %d current vs %d proposed policies\n", currentCount, proposedCount)
 			output.Printf("CloudTrail window: last %d hour(s) (region: %s)\n\n", hours, region)
 
@@ -3018,9 +3035,13 @@ Use 'attest ai translate' to generate proposed policies from natural language.`,
 					continue
 				}
 				cur, err := eval.EvaluateWithPolicies(ctx, currentPS, req)
-				if err != nil { continue }
+				if err != nil {
+					continue
+				}
 				prop, err := eval.EvaluateWithPolicies(ctx, proposedPS, req)
-				if err != nil { continue }
+				if err != nil {
+					continue
+				}
 
 				if cur.Effect == prop.Effect {
 					unchanged++
@@ -5873,16 +5894,16 @@ Requires: cosign CLI installed (https://docs.sigstore.dev/cosign/system_config/i
 				// (come from the signed image's attestation) and must not be
 				// interpolated into a raw YAML string.
 				draftRecord := map[string]string{
-					"id":             draftID,
-					"control_id":     m.ControlID,
-					"objective_id":   m.ObjectiveID,
-					"title":          m.Description,
-					"affirmed_by":    "cosign-automated",
-					"evidence":       m.Evidence,
-					"evidence_type":  "cosign_attestation",
-					"rekor_log_id":   att.RekorLogID,
-					"sbom_digest":    att.SBOMDigest,
-					"status":         "draft",
+					"id":            draftID,
+					"control_id":    m.ControlID,
+					"objective_id":  m.ObjectiveID,
+					"title":         m.Description,
+					"affirmed_by":   "cosign-automated",
+					"evidence":      m.Evidence,
+					"evidence_type": "cosign_attestation",
+					"rekor_log_id":  att.RekorLogID,
+					"sbom_digest":   att.SBOMDigest,
+					"status":        "draft",
 				}
 				draftBytes, err := yaml.Marshal(draftRecord)
 				if err != nil {
@@ -6057,8 +6078,8 @@ Requires: cloudtrail:DescribeTrails, events:PutRule, events:PutTargets,
 			queueOut, err := sqsSvc.CreateQueue(ctx, &sqssvc.CreateQueueInput{
 				QueueName: aws.String("attest-cedar-events"),
 				Attributes: map[string]string{
-					"MessageRetentionPeriod":  "86400",  // 1 day
-					"VisibilityTimeout":        "60",
+					"MessageRetentionPeriod":        "86400", // 1 day
+					"VisibilityTimeout":             "60",
 					"ReceiveMessageWaitTimeSeconds": "20", // enable long-polling by default
 				},
 			})
@@ -6081,8 +6102,8 @@ Requires: cloudtrail:DescribeTrails, events:PutRule, events:PutTargets,
 			// Create EventBridge rule.
 			ebSvc := ebsvc.NewFromConfig(cfg)
 			ruleOut, err := ebSvc.PutRule(ctx, &ebsvc.PutRuleInput{
-				Name:        aws.String("attest-cedar-cloudtrail"),
-				Description: aws.String("Delivers CloudTrail management events to attest Cedar PDP"),
+				Name:         aws.String("attest-cedar-cloudtrail"),
+				Description:  aws.String("Delivers CloudTrail management events to attest Cedar PDP"),
 				EventPattern: aws.String(`{"source":["aws.cloudtrail"]}`),
 				State:        ebtypes.RuleStateEnabled,
 			})

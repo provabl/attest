@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`attest preflight` verifies the caller's IAM permissions** (provabl#16): a new check confirms the
+  calling principal actually holds the actions attest needs (Organizations read, `iam:ListRoleTags`/
+  `GetRole`/`ListRoles`, `cloudformation:DescribeStacks`, `cloudtrail:DescribeTrails`,
+  `config:DescribeConfigurationRecorders`, `sts:GetCallerIdentity`, and `iam:SimulatePrincipalPolicy`
+  itself) via read-only `iam:SimulatePrincipalPolicy` against the caller ARN from
+  `sts:GetCallerIdentity`. Each denied action is an error with a grant-this remediation and the
+  command flips to NOT READY. Fail-closed: an unresolvable caller or an un-callable simulator is an
+  error, not a pass. `internal/org.CheckCallerPermissions` (+ mock-driven tests). Complements the
+  existing org-posture checks (those ask "is the environment set up?"; this asks "can this principal
+  run attest here?"). Per-tool action lists live in the suite's `docs/required-permissions.md`; other
+  tools' preflight is tracked in provabl#16.
 - **Versioned `attest:*` tag schema contract** (qualify#32): the `attest:*` IAM tag namespace
   shared with qualify is now anchored by a canonical, machine-readable `pkg/schema/attest-tags-schema.json`
   (byte-identical with qualify's copy) plus a `SchemaVersion` constant. A conformance test
