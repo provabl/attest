@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`attest approval grant`/`revoke`** — the NIH DUA approval lifecycle (attest#99; provabl#11 Tier 2,
+  ADR 0002 Decision 2). `grant` records a signed DUA as a human-affirmed `schema.Attestation`, then
+  *activates* it by writing the `attest:nih-approval`, `attest:nih-approval-expiry`, and
+  `attest:nih-dua-ids` IAM role tags the principal resolver reads and `cedar-nih-approved-user` gates
+  on — no new evaluation path. Because a researcher accrues DUAs across studies (and compute-to-data
+  binds each dataset to a specific DUA), `grant` **merges** the DUA into the `attest:nih-dua-ids` set
+  and `revoke` removes one, clearing the approval tags entirely when the last is gone (never leaving
+  `attest:nih-approval=true` with an empty set — an inconsistent state). New `internal/approval`
+  (set-merge logic behind an injectable `RoleTagger`; fake-driven tests). Records first, then touches
+  IAM — no activation without a recorded basis. This is attest's first IAM-role-*write* path; it adds
+  `iam:TagRole`/`iam:UntagRole` (documented in the suite's `docs/required-permissions.md` as
+  approval-only). The dataset-scoped Cedar policy that *consumes* the set is the follow-up (attest#100).
 - **`attest preflight` verifies the caller's IAM permissions** (provabl#16): a new check confirms the
   calling principal actually holds the actions attest needs (Organizations read, `iam:ListRoleTags`/
   `GetRole`/`ListRoles`, `cloudformation:DescribeStacks`, `cloudtrail:DescribeTrails`,
