@@ -61,9 +61,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   not a valid IAM tag-value character; `+` is, and DUA/phs ids never contain it — `schema.SetDelim`).
   The schema JSON (byte-identical in both repos), `SchemaVersion` (1→2), the conformance test's
   allowed types (adds `set`), the nih-gds framework's principal attributes, and the resolver all
-  move together. This is the first key change to exercise the qualify#32 versioned-schema guard. No
-  producer yet writes the singular key (attest#99's `attest approval` command is unbuilt), so this is
-  a clean rename with nothing deployed to be compatible with.
+  move together. This is the first key change to exercise the qualify#32 versioned-schema guard.
+  Producer: `attest approval` (above). Consumer: the dataset-scoped policy (below).
+- **NIH Approved-User gate is now dataset-scoped** (attest#100; provabl#11, ADR 0002 Decision 3). The
+  `cedar-nih-approved-user` policy (nih-gds 1.1) was **blanket** — `principal.nih_approval_current ==
+  true` against any `nih_controlled_access` resource — so approval for one study granted access to
+  every controlled dataset. It now also requires
+  `principal.nih_approval_dua_ids.contains(resource.dua_id)`: a researcher reaches a dataset only with
+  the DUA *that* dataset requires. Three coupled changes make the set usable end to end: the evaluator
+  lowers a `[]string` attribute to a real Cedar `Set` (`toValue`, previously stringified); the
+  compiler types plural-`ids` attributes as `Set<String>` (`inferCedarType` — singular `dua_id`/
+  `repository_id` stay `String`); and the nih-gds inline `cedar_policy` carries the membership clause.
+  Proven by a real cedar-go evaluation test (holds-required-DUA → ALLOW; wrong-DUA, empty-set,
+  unapproved → DENY; non-controlled resource → ALLOW) and a compile+parse test on the framework. This
+  is a **tightening**: no principal gains access they lacked. Consumes the `attest:nih-dua-ids` set
+  the new `attest approval` command writes.
 - **Go 1.26.4**: bumped the `go` directive to clear the GO-2026-* standard-library advisories the
   weekly Security Scan flagged. (#101)
 - Copyright holder normalized to Playground Logic LLC.

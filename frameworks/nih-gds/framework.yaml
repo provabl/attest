@@ -70,8 +70,11 @@ controls:
       - id: cedar-nih-approved-user
         description: >
           Principal must have active NIH Approved User status (attest:nih-approval=true
-          with non-expired attest:nih-approval-expiry) to access NIH controlled-access
-          resources. Covers all actions on resources tagged nih_controlled_access=true.
+          with non-expired attest:nih-approval-expiry) AND hold the specific DUA the
+          dataset requires (resource.dua_id must be a member of the principal's
+          attest:nih-dua-ids set) to access an NIH controlled-access resource. Being
+          approved for one study no longer grants access to another. Covers all actions
+          on resources tagged nih_controlled_access=true.
         entities:
           - principal
           - nih_resource
@@ -92,7 +95,7 @@ controls:
               Without current NIH approval records in the principal resolver,
               Cedar evaluates nih_approval_current=false and denies all access
               to NIH controlled-access resources.
-        cedar_policy: "// NIH GDS 1.1 — Approved User gate\nforbid (\n  principal,\n  action,\n  resource\n)\nwhen {\n  resource has nih_controlled_access &&\n  resource.nih_controlled_access == true &&\n  !(principal has nih_approval_current &&\n    principal.nih_approval_current == true)\n};\n"
+        cedar_policy: "// NIH GDS 1.1 — Approved User gate (dataset-scoped)\nforbid (\n  principal,\n  action,\n  resource\n)\nwhen {\n  resource has nih_controlled_access &&\n  resource.nih_controlled_access == true &&\n  !(principal has nih_approval_current &&\n    principal.nih_approval_current == true &&\n    principal has nih_approval_dua_ids &&\n    resource has dua_id &&\n    principal.nih_approval_dua_ids.contains(resource.dua_id))\n};\n"
         temporal:
           condition_type: expiry
           description: >

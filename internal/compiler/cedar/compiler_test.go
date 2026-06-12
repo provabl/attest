@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	cedar "github.com/cedar-policy/cedar-go"
+
 	"github.com/provabl/attest/internal/framework"
 	"github.com/provabl/attest/pkg/schema"
 )
@@ -95,9 +97,9 @@ unless { resource.encrypted == true };`
 
 func TestTemporalConstraints(t *testing.T) {
 	tests := []struct {
-		name           string
-		conditionType  string
-		wantContains   string
+		name          string
+		conditionType string
+		wantContains  string
 	}{
 		{"expiry", "expiry", "principal.training_expiry"},
 		{"event", "event", "principal.irb_active"},
@@ -210,6 +212,11 @@ func TestInferCedarType(t *testing.T) {
 		{"cui_training_expiry", "Long"},
 		{"irb_protocols", "Set<String>"},
 		{"lab_membership", "Set<String>"},
+		// Plural id → Set; singular ids stay String (the dataset-scoped DUA model).
+		{"nih_approval_dua_ids", "Set<String>"},
+		{"dua_id", "String"},
+		{"repository_id", "String"},
+		{"source_dua_id", "String"},
 	}
 
 	for _, tt := range tests {
@@ -293,5 +300,55 @@ func TestCompileFullFramework(t *testing.T) {
 		if p.PolicyText == "" {
 			t.Errorf("policy %s has empty text", p.ID)
 		}
+	}
+}
+
+// TestCompileNIHGDSDatasetScoped verifies the dataset-scoped Approved-User gate
+// (attest#100): the nih-gds 1.1 inline cedar_policy compiles, carries the
+// .contains(resource.dua_id) membership clause, parses cleanly through cedar-go,
+// and that nih_approval_dua_ids is typed Set<String> (not String) in the schema.
+func TestCompileNIHGDSDatasetScoped(t *testing.T) {
+	loader := framework.NewLoader("../../../frameworks")
+	fw, err := loader.Load("nih-gds")
+	if err != nil {
+		t.Fatalf("Load(nih-gds) error = %v", err)
+	}
+	rcs, err := framework.Resolve([]*schema.Framework{fw})
+	if err != nil {
+		t.Fatalf("Resolve() error = %v", err)
+	}
+	c := NewCompiler()
+	policies, err := c.Compile(rcs)
+	if err != nil {
+		t.Fatalf("Compile() error = %v", err)
+	}
+
+	var found bool
+	for _, p := range policies {
+		if !strings.Contains(p.PolicyText, "nih_approval_dua_ids") {
+			continue
+		}
+		found = true
+		if !strings.Contains(p.PolicyText, "nih_approval_dua_ids.contains(resource.dua_id)") {
+			t.Errorf("policy %s lacks the dataset-scoped .contains(resource.dua_id) clause:\n%s", p.ID, p.PolicyText)
+		}
+		// The inline policy must parse through the real Cedar engine.
+		if _, err := cedar.NewPolicySetFromBytes(p.ID+".cedar", []byte(p.PolicyText)); err != nil {
+			t.Errorf("policy %s does not parse through cedar-go: %v\n%s", p.ID, err, p.PolicyText)
+		}
+		// nih_approval_dua_ids must be a Set, not a String, in the entity schema.
+		for _, et := range p.Entities.Types {
+			if ct, ok := et.Attributes["nih_approval_dua_ids"]; ok && ct != "Set<String>" {
+				t.Errorf("nih_approval_dua_ids typed %q, want Set<String>", ct)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no compiled nih-gds policy referenced nih_approval_dua_ids")
+	}
+
+	// The full nih-gds schema must also parse as a Cedar schema.
+	if schemaText := c.BuildSchema(rcs); schemaText == "" {
+		t.Fatal("BuildSchema() returned empty string")
 	}
 }
