@@ -111,6 +111,21 @@ AWS Org API      ──► Org topology, existing SCPs
 
 ---
 
+## Install
+
+```bash
+go install github.com/provabl/attest/cmd/attest@latest   # requires Go 1.26.4+
+# or build from a clone: go build ./cmd/attest
+```
+
+**Prerequisites.** Go 1.26.4+, and AWS credentials with read access to your Organization (`attest
+init` discovers the org via standard Organizations APIs; `attest apply` additionally needs SCP/policy
+write permissions). Run `attest preflight` to verify the calling principal holds what it needs. The
+DUA-approval path (`attest approval`) additionally writes `iam:TagRole`/`iam:UntagRole`. No external
+tools are required for the core compile/scan/generate flow.
+
+---
+
 ## Quick start
 
 ```bash
