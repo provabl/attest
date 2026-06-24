@@ -178,12 +178,3 @@ func dedupSorted(in []string) []string {
 	sort.Strings(out)
 	return out
 }
-
-func schemaKeySlice(s *TagSchema) []string {
-	out := make([]string, 0, len(s.Tags))
-	for _, e := range s.Tags {
-		out = append(out, e.Key)
-	}
-	sort.Strings(out)
-	return out
-}
