@@ -55,18 +55,34 @@ func TestSchemaVersionMatchesCanonical(t *testing.T) {
 	}
 }
 
+// attestReadWriters are the schema writers whose tags attest itself reads via the
+// principal resolver (training/identity from qualify, NIH approval from attest, the
+// legacy key). attest declares a Go constant for each of THESE. The producer rows
+// (vet/nitro/tpm) are read by ground's SCPs, not attest's resolver — they are
+// governed by their own writers' conformance tests, per ADR 0003 ("each writer
+// locks its own rows"). This is the writer-scoping that lets the schema be the
+// complete namespace registry without forcing attest to declare tags it never reads.
+var attestReadWriters = map[string]bool{"qualify": true, "attest": true, "legacy": true}
+
 // TestDeclaredConstantsMatchSchema is the conformance test: the set of attest:* key
-// constants attest declares must be exactly the set of keys in the canonical schema
-// — no missing keys (attest can't read a tag it has no constant for) and no extra
-// keys (a constant with no schema entry is undocumented drift).
+// constants attest declares must be exactly the set of *attest-read* keys in the
+// canonical registry (writers in attestReadWriters) — no missing keys (attest can't
+// read a tag it has no constant for) and no extra keys (a constant with no schema
+// entry is undocumented drift). Producer-only rows are intentionally excluded.
 func TestDeclaredConstantsMatchSchema(t *testing.T) {
 	s, err := LoadTagSchema()
 	if err != nil {
 		t.Fatalf("LoadTagSchema: %v", err)
 	}
 
-	schemaKeys := make(map[string]bool, len(s.Tags))
+	schemaKeys := make(map[string]bool)
 	for _, e := range s.Tags {
+		if !attestReadWriters[e.Writer] {
+			continue // producer-only row (vet/nitro/tpm) — governed by that writer's repo
+		}
+		if e.Pattern {
+			continue // a key family (no attest-read patterns today, but be explicit)
+		}
 		if schemaKeys[e.Key] {
 			t.Errorf("duplicate key in schema: %q", e.Key)
 		}
@@ -80,18 +96,52 @@ func TestDeclaredConstantsMatchSchema(t *testing.T) {
 
 	for k := range schemaKeys {
 		if !declared[k] {
-			t.Errorf("schema key %q has no attest constant — add it to tags.go and declaredTagConstants", k)
+			t.Errorf("attest-read schema key %q has no attest constant — add it to tags.go and declaredTagConstants", k)
 		}
 	}
 	for k := range declared {
 		if !schemaKeys[k] {
-			t.Errorf("attest constant %q is not in the canonical schema — add it to attest-tags-schema.json (both repos) and bump SchemaVersion", k)
+			t.Errorf("attest constant %q is not an attest-read key in the canonical schema — fix attest-tags-schema.json (every repo) and bump SchemaVersion", k)
 		}
 	}
 
-	if len(declaredTagConstants) != len(s.Tags) {
-		got, want := dedupSorted(declaredTagConstants), schemaKeySlice(s)
-		t.Errorf("count mismatch: %d declared constants vs %d schema keys\n declared: %v\n schema:   %v", len(declaredTagConstants), len(s.Tags), got, want)
+	if len(declaredTagConstants) != len(schemaKeys) {
+		t.Errorf("count mismatch: %d declared constants vs %d attest-read schema keys\n declared: %v",
+			len(declaredTagConstants), len(schemaKeys), dedupSorted(declaredTagConstants))
+	}
+}
+
+// TestRegistryCoversProducerTags asserts the registry includes the producer-written
+// tags (the whole point of v3 — the namespace is complete here even though attest
+// doesn't declare constants for them). A guard against a producer tag silently
+// leaving the registry.
+func TestRegistryCoversProducerTags(t *testing.T) {
+	s, err := LoadTagSchema()
+	if err != nil {
+		t.Fatalf("LoadTagSchema: %v", err)
+	}
+	want := map[string]string{
+		"attest:vetted":           "vet",
+		"attest:pcr<N>":           "vet",
+		"attest:enclave-attested": "nitro",
+		"attest:boot-attested":    "tpm",
+	}
+	got := map[string]string{}
+	for _, e := range s.Tags {
+		if _, ok := want[e.Key]; ok {
+			got[e.Key] = e.Writer
+		}
+	}
+	for k, w := range want {
+		if got[k] != w {
+			t.Errorf("registry missing/mismatched producer tag %q (want writer %q, got %q)", k, w, got[k])
+		}
+	}
+	// The conflated tag must be gone.
+	for _, e := range s.Tags {
+		if e.Key == "attest:nitro-attested" {
+			t.Error("attest:nitro-attested must be retired (split into enclave-attested/boot-attested per ADR 0003)")
+		}
 	}
 }
 
@@ -106,7 +156,9 @@ func TestSchemaEntriesWellFormed(t *testing.T) {
 	for _, e := range s.Tags {
 		keys[e.Key] = true
 	}
-	writers := map[string]bool{"qualify": true, "attest": true, "legacy": true}
+	writers := map[string]bool{
+		"qualify": true, "attest": true, "vet": true, "nitro": true, "tpm": true, "legacy": true,
+	}
 	types := map[string]bool{"bool": true, "timestamp": true, "string": true, "set": true}
 	for _, e := range s.Tags {
 		if !writers[e.Writer] {
@@ -123,15 +175,6 @@ func TestSchemaEntriesWellFormed(t *testing.T) {
 
 func dedupSorted(in []string) []string {
 	out := append([]string(nil), in...)
-	sort.Strings(out)
-	return out
-}
-
-func schemaKeySlice(s *TagSchema) []string {
-	out := make([]string, 0, len(s.Tags))
-	for _, e := range s.Tags {
-		out = append(out, e.Key)
-	}
 	sort.Strings(out)
 	return out
 }

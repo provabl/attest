@@ -19,7 +19,13 @@ import (
 // v2 (2026-06): attest:nih-dua-id (string) → attest:nih-dua-ids (set). A
 // researcher holds DUAs for multiple studies, and compute-to-data binds each
 // dataset to a specific DUA. See docs/adr/0002-compute-to-data-access.md.
-const SchemaVersion = 2
+//
+// v3 (2026-06): the schema becomes the registry of the COMPLETE attest:*
+// namespace, not just the qualify↔attest subset. Adds vet's attest:vetted +
+// attest:pcr<N> (pattern), and splits the conflated attest:nitro-attested into
+// per-property attest:enclave-attested (nitro) and attest:boot-attested (tpm).
+// Each writer repo locks its own rows. See docs/adr/0003-attest-tag-namespace-no-conflation.md.
+const SchemaVersion = 3
 
 // canonicalTagsSchemaJSON is the byte-identical canonical schema, also present in
 // qualify at internal/training/attest-tags-schema.json. The conformance test in
@@ -30,13 +36,14 @@ const SchemaVersion = 2
 //go:embed attest-tags-schema.json
 var canonicalTagsSchemaJSON []byte
 
-// TagSchemaEntry is one row of the canonical schema.
+// TagSchemaEntry is one row of the canonical registry.
 type TagSchemaEntry struct {
-	Key    string `json:"key"`
-	Writer string `json:"writer"` // "qualify" | "attest" | "legacy"
-	Type   string `json:"type"`   // "bool" | "timestamp" | "string" | "set"
-	Module string `json:"module,omitempty"`
-	Expiry string `json:"expiry,omitempty"`
+	Key     string `json:"key"`
+	Writer  string `json:"writer"` // "qualify" | "attest" | "vet" | "nitro" | "tpm" | "legacy"
+	Type    string `json:"type"`   // "bool" | "timestamp" | "string" | "set"
+	Module  string `json:"module,omitempty"`
+	Expiry  string `json:"expiry,omitempty"`
+	Pattern bool   `json:"pattern,omitempty"` // true if Key is a family (e.g. attest:pcr<N>), not a literal key
 }
 
 // SetDelim joins members of a "set"-typed tag value into the single IAM tag
