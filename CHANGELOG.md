@@ -90,6 +90,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   weekly Security Scan flagged. (#101)
 - Copyright holder normalized to Playground Logic LLC.
 
+### Fixed
+
+- **Security Scan: pin `aquasecurity/trivy-action` to `v0.36.0`** (#117). Both Trivy steps tracked
+  `@master`, which drifted to a revision whose internal tool-cache setup rejected its own `path` input
+  — failing the workflow on every PR (the scan never ran). Pinning to the latest release fixes it and
+  is correct supply-chain hygiene for a security project (don't float CI actions on a branch). Our
+  inputs (`scan-type`/`scan-ref`/`severity`/`exit-code`) are unchanged in v0.36.0.
+
 ### Notes
 
 - #102 (resolver reads "appraised" attributes) resolved as satisfied-by-design: producing tools

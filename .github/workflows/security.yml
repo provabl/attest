@@ -30,7 +30,7 @@ jobs:
 
       # --- Trivy filesystem scan ---
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -39,7 +39,7 @@ jobs:
 
       # --- Trivy IaC scan ---
       - name: Trivy IaC scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           scan-ref: .
