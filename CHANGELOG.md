@@ -90,6 +90,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   weekly Security Scan flagged. (#101)
 - Copyright holder normalized to Playground Logic LLC.
 
+### Fixed
+
+- **Security Scan: pin `aquasecurity/trivy-action` to `v0.36.0`** (#117). Both Trivy steps tracked
+  `@master`, which drifted to a revision whose internal tool-cache setup rejected its own `path` input
+  — failing the workflow on every PR (the scan never ran). Pinning to the latest release fixes it and
+  is correct supply-chain hygiene for a security project (don't float CI actions on a branch). Our
+  inputs (`scan-type`/`scan-ref`/`severity`/`exit-code`) are unchanged in v0.36.0.
+- **8 HIGH `golang.org/x/crypto` CVEs** (surfaced *because* the pinned scan now actually runs):
+  bumped the indirect dependency `v0.48.0 → v0.52.0`, clearing CVE-2026-39827/39828/39829/39830/39835
+  (SSH channel/DoS), CVE-2026-42508 (knownhosts revocation bypass), and CVE-2026-46595/46597. Trivy
+  filesystem scan is clean after the bump.
+
 ### Notes
 
 - #102 (resolver reads "appraised" attributes) resolved as satisfied-by-design: producing tools
