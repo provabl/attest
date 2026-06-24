@@ -54,6 +54,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Tag schema → v3: the complete `attest:*` namespace registry, no conflation** (attest#115; provabl
+  ADR 0003). `attest-tags-schema.json` now enumerates the *whole* namespace, not just the qualify↔attest
+  subset: adds vet's `attest:vetted` + `attest:pcr<N>` (a `pattern` entry), and **splits the conflated
+  `attest:nitro-attested`** into per-property `attest:enclave-attested` (writer `nitro`) and
+  `attest:boot-attested` (writer `tpm`) — a tag names *what was proven, not which tool proved it*. New
+  `writer` values (`vet`/`nitro`/`tpm`) and a `Pattern` field on `TagSchemaEntry`; `SchemaVersion` 2→3.
+  The conformance test is now **writer-scoped**: attest locks only the rows it *reads* (qualify/attest/
+  legacy), producer rows are governed by their own repos' tests (per ADR 0003). New
+  `TestRegistryCoversProducerTags` guards that the producer tags are present and the conflated tag is
+  gone. Lockstep with qualify's byte-identical copy. Producers (nitro#10, tpm#4) and ground#29 follow.
 - **`attest:nih-dua-id` (string) → `attest:nih-dua-ids` (set)** — tag-schema **v2** (provabl#11,
   attest#100; provabl ADR 0002). A researcher holds DUAs for multiple studies, and compute-to-data
   binds each controlled dataset to a specific DUA, so the principal's approved DUAs become a set:
