@@ -6,6 +6,19 @@ Universities, health systems, and national labs running research on AWS face a c
 
 Attest automates the full lifecycle: read your org, compile your policies, deploy them, enforce them continuously, and generate the documents your auditor actually needs.
 
+attest is the suite's **policy decision point** — it *consumes* the lowered attributes every
+other tool produces and turns them into PERMIT/FORBID decisions plus the compliance documents:
+
+```mermaid
+flowchart LR
+    qualify["qualify"] -->|"attest:* tags → principal.*"| attest
+    vet["vet"] -->|".vet/gate-result.json → context.workload.*"| attest
+    runtime["nitro / tpm"] -->|".../attestation.json → context.platform.*"| attest
+    ground["ground"] -->|"deployed org (standard APIs)"| attest
+    attest["<b>attest</b><br/>compile · Cedar PDP · enforce"] --> dec["PERMIT / FORBID"]
+    attest --> docs["SSP · POA&amp;M · OSCAL · SPRS"]
+```
+
 ---
 
 ## The problem attest solves
