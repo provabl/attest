@@ -21,6 +21,15 @@ flowchart LR
 
 ---
 
+## Core concepts
+
+The handful of ideas to hold (terms link to the suite [glossary](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md)):
+
+- **[Cedar](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#cedar) / [PDP](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#pdp-policy-decision-point)** — attest *is* the policy decision point: a Cedar policy returns permit/forbid for each sensitive action. attest evaluates facts; it does not gather them.
+- **[Lowered attributes](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#lowered-attribute)** — the durable artifacts attest *consumes*: qualify's `attest:*` tags (→ `principal.*`), vet's `context.workload.*`, nitro/tpm's `context.platform.*`. attest reads them; it never re-runs the producers.
+- **Compiler + crosswalk** — attest compiles framework requirements ([NIST 800-171](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#nist-800-171--800-53), CMMC, HIPAA…) into deployed [SCPs](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#scp-service-control-policy)/Cedar policies, and emits a crosswalk mapping every control to the artifact that enforces it.
+- **Documents from the same facts** — the decision and the audit evidence ([SSP](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#ssp-system-security-plan)/[POA&M](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#poam-plan-of-action-and-milestones)/[OSCAL](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#oscal)/[SPRS](https://github.com/provabl/provabl/blob/main/docs/guide/glossary.md#sprs-supplier-performance-risk-system)) come from one source, not a decision here and a hand-written assertion there.
+
 ## The problem attest solves
 
 A compliance program has two layers that most tools treat independently. Attest connects them.
