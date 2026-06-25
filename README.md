@@ -2,6 +2,8 @@
 
 **Open-source compliance compiler for AWS Secure Research Environments.**
 
+> **Boundary:** attest is the suite's **decision-and-proof layer** — it compiles policy, *decides* access (the Cedar PDP), and generates audit documents. It **consumes** the facts the other tools produce (training, supply-chain, runtime attestation) but never gathers them itself, and ground — not attest — builds the AWS foundation.
+
 Universities, health systems, and national labs running research on AWS face a compliance problem that consultants charge $300/hour to solve: translating framework requirements (NIST 800-171, HIPAA, FERPA, CMMC) into deployed AWS controls — and then proving they're working.
 
 Attest automates the full lifecycle: read your org, compile your policies, deploy them, enforce them continuously, and generate the documents your auditor actually needs.
